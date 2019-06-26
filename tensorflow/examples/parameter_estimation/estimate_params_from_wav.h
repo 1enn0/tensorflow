@@ -7,13 +7,14 @@
 
 namespace tf = tensorflow;
 
+using SessionPtr = std::unique_ptr<tf::Session>;
 
-tf::Status wavToLogMelSpectrogram(std::unique_ptr<tf::Session>* session,
-                                   const tf::string& input_wav_path,
-                                   const tf::string& graph,
-                                   tf::Tensor& spectrogram_out);
+tf::Status wavToLogMelSpectrogram(SessionPtr& session,
+                                  const tf::string& input_wav_path,
+                                  const tf::string& graph,
+                                  tf::Tensor& spectrogram_out);
 
-tf::Status runInference (std::unique_ptr<tf::Session>* session,
+tf::Status runInference (SessionPtr& session,
                          const tf::string& graph,
                          const tf::Tensor& spectrogram_in,
                          tf::Tensor& params_out);

@@ -21,22 +21,28 @@ limitations under the License.
 #include "tensorflow/core/platform/init_main.h"
 #include "tensorflow/core/util/command_line_flags.h"
 
-namespace tf = tensorflow;
+namespace {
+  namespace tf = tensorflow;
+  using tf::string;
+  using tf::Flag;
+  using tf::Tensor;
+  using tf::Status;
+} //namespace
 
 int main(int argc, char* argv[]) {
-  tf::string input_wav_path{};
-  tf::string preprocessing_graph{};
-  tf::string model_graph{};
+  string input_wav_path{};
+  string preprocessing_graph{};
+  string model_graph{};
 
-  std::vector<tf::Flag> flag_list = {
-      tf::Flag("input_wav_path", &input_wav_path, "audio file to load"),
-      tf::Flag(
+  std::vector<Flag> flag_list = {
+      Flag("input_wav_path", &input_wav_path, "audio file to load"),
+      Flag(
           "preprocessing_graph", &preprocessing_graph,
           "preprocessing graph to transform wave into log-mel spectrograms"),
-      tf::Flag("model_graph", &model_graph, "model to execute"),
+      Flag("model_graph", &model_graph, "model to execute"),
   };
 
-  tf::string usage = tf::Flags::Usage(argv[0], flag_list);
+  string usage = tf::Flags::Usage(argv[0], flag_list);
   const bool parse_result = tf::Flags::Parse(&argc, argv, flag_list);
   if (!parse_result) {
     LOG(ERROR) << usage;
@@ -50,13 +56,11 @@ int main(int argc, char* argv[]) {
     return -1;
   }
 
-  //   auto session =
-  //   std::make_unique<tf::Session>(tf::NewSession(tf::SessionOptions()));
-  std::unique_ptr<tf::Session> session;
+  SessionPtr session;
 
-  tf::Tensor spectrogram;
-  tf::Status status;
-  status = wavToLogMelSpectrogram(&session, input_wav_path,
+  Tensor spectrogram;
+  Status status;
+  status = wavToLogMelSpectrogram(session, input_wav_path,
                                   preprocessing_graph, spectrogram);
   
   if(!status.ok())
@@ -64,17 +68,13 @@ int main(int argc, char* argv[]) {
       LOG(ERROR) << "wavToLogMelSpectrogram() failed.\n";
       return -1;
   }
-  LOG(INFO) << "spectrogram shape: " << spectrogram.shape();
 
-  tf::Tensor params;
-  status = runInference(&session, model_graph, spectrogram, params);
+  Tensor params;
+  status = runInference(session, model_graph, spectrogram, params);
   if(!status.ok())
   {
       LOG(ERROR) << "running model failed.\n";
       return -1;
   }
-  LOG(INFO) << "params shape: " << params.shape() << "\nparams: " << (params).tensor<float, 2>();
-
-
   return 0;
 }
