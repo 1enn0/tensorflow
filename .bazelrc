@@ -81,6 +81,10 @@ build --spawn_strategy=standalone
 build --genrule_strategy=standalone
 build -c opt
 
+build:dgb --copt=-Og
+build:dbg --copt=-ggdb
+build:dbg --strip=never
+
 # Other build flags.
 build --define=grpc_no_ares=true
 
