@@ -12,6 +12,7 @@ exports_files([
 
 load("//tensorflow:tensorflow.bzl", "tf_cc_binary")
 
+
 tf_cc_binary(
     name = "my_custom_op",
     srcs = [
