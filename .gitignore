@@ -3,7 +3,10 @@
 node_modules
 /.bazelrc.user
 /.tf_configure.bazelrc
-/bazel-*
+/bazel-bin
+/bazel-out
+/bazel-testlogs
+/bazel-tensorflow
 /bazel_pip
 /tools/python_bin_path.sh
 /tensorflow/tools/git/gen
