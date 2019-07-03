@@ -7,22 +7,19 @@
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/framework/common_shape_fns.h"
 
+
+//-----------------------------------------------------------------------------
+namespace custom_ops {
+
 using tensorflow::Tensor;
 using tensorflow::TensorShape;
 using tensorflow::OpKernel;
 using tensorflow::OpKernelContext;
 using tensorflow::OpKernelConstruction;
-/* using tensorflow::OP_REQUIRES_OK; */
-/* using tensorflow::REGISTER_OP; */
-/* using tensorflow::REGISTER_KERNEL_BUILDER; */
-using tensorflow::DEVICE_CPU;
 using tensorflow::uint8;
 using tensorflow::uint16;
 using tensorflow::uint32;
 using tensorflow::int64;
-
-//-----------------------------------------------------------------------------
-namespace custom_ops {
 
 static constexpr uint8 numRows {4};
 static constexpr uint8 numCols {4};
@@ -37,8 +34,10 @@ class DotProductLutOp : public OpKernel {
     
     void Compute(OpKernelContext* ctx) override {
       // get input tensors
-      const Tensor& activationIndicesTensor = ctx->input(0);
-      const Tensor& weightIndicesTensor = ctx->input(1);
+      const Tensor& lookupTableTensor = ctx->input(0);
+      const Tensor& activationIndicesTensor = ctx->input(1);
+      const Tensor& weightIndicesTensor = ctx->input(2);
+      auto lookupTable = lookupTableTensor.matrix<float>();
       auto aIdcs = activationIndicesTensor.flat<T> ();
       auto wIdcs = weightIndicesTensor.flat<T> ();
       int64 nElts = activationIndicesTensor.NumElements();
@@ -49,7 +48,8 @@ class DotProductLutOp : public OpKernel {
       
       output(0) = 0.f;
       for (T i {0}; i < T(nElts); ++i)
-        output(0) += lookUp(aIdcs(i), wIdcs(i));
+        output(0) += lookupTable(aIdcs(i), wIdcs(i));
+      
     }
 
    static auto getLut () -> DotProductLutOp::LookUpTable {return lut_;};
@@ -72,6 +72,7 @@ const std::array<float, 16> DotProductLutOp<T>::lut_ = {1.f, 2.f, 3.f, 4.f, 5.f,
 
 //-----------------------------------------------------------------------------
 REGISTER_OP("DotProductLut")
+  .Input("lut: float")
   .Input("activation_indices: T")
   .Input("weight_indices: T")
   .Output("product: float")
@@ -82,20 +83,20 @@ REGISTER_OP("DotProductLut")
 //-----------------------------------------------------------------------------
 REGISTER_KERNEL_BUILDER(
     Name("DotProductLut")
-    .Device(DEVICE_CPU)
-    .TypeConstraint<uint8>("T"),
-    custom_ops::DotProductLutOp<uint8>);
+    .Device(tensorflow::DEVICE_CPU)
+    .TypeConstraint<tensorflow::uint8>("T"),
+    custom_ops::DotProductLutOp<tensorflow::uint8>);
 
 //-----------------------------------------------------------------------------
 REGISTER_KERNEL_BUILDER(
     Name("DotProductLut")
-    .Device(DEVICE_CPU)
-    .TypeConstraint<uint16>("T"),
-    custom_ops::DotProductLutOp<uint16>);
+    .Device(tensorflow::DEVICE_CPU)
+    .TypeConstraint<tensorflow::uint16>("T"),
+    custom_ops::DotProductLutOp<tensorflow::uint16>);
 
 //-----------------------------------------------------------------------------
 REGISTER_KERNEL_BUILDER(
     Name("DotProductLut")
-    .Device(DEVICE_CPU)
-    .TypeConstraint<uint32>("T"),
-    custom_ops::DotProductLutOp<uint32>);
+    .Device(tensorflow::DEVICE_CPU)
+    .TypeConstraint<tensorflow::uint32>("T"),
+    custom_ops::DotProductLutOp<tensorflow::uint32>);
