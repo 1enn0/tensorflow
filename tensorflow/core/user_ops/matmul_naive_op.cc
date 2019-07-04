@@ -6,7 +6,6 @@
 #include "tensorflow/core/framework/shape_inference.h"
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/framework/common_shape_fns.h"
-/* #include "tensorflow/core/kernels/fill_functor.h" */
 
 
 //-----------------------------------------------------------------------------
@@ -19,17 +18,13 @@ using tensorflow::TensorShapeUtils;
 using tensorflow::OpKernel;
 using tensorflow::OpKernelContext;
 using tensorflow::OpKernelConstruction;
-using tensorflow::uint8;
-using tensorflow::uint16;
-using tensorflow::uint32;
-using tensorflow::int64;
 
 //-----------------------------------------------------------------------------
-template <typename InputIdxType, typename LUTValueType>
-class MatMulLUTOp : public OpKernel {
+template <typename T>
+class MatMulNaiveOp : public OpKernel {
 //-----------------------------------------------------------------------------
   public:
-    explicit MatMulLUTOp(OpKernelConstruction* ctx) : OpKernel(ctx) {
+    explicit MatMulNaiveOp(OpKernelConstruction* ctx) : OpKernel(ctx) {
       OP_REQUIRES_OK(ctx, ctx->GetAttr("transpose_a", &transpose_a_));
       OP_REQUIRES_OK(ctx, ctx->GetAttr("transpose_b", &transpose_b_));
     }
@@ -39,7 +34,6 @@ class MatMulLUTOp : public OpKernel {
       // get input tensors
       const Tensor& a = ctx->input(0);
       const Tensor& b = ctx->input(1);
-      const Tensor& t = ctx->input(2);
 
       // check that dimensions of the two input matrices are valid
       OP_REQUIRES(
@@ -82,10 +76,9 @@ class MatMulLUTOp : public OpKernel {
       /*   f(ctx->eigen_device<CPUDevice>(), out_tensor->flat<LUTValueType>()); */
       /* } */
 
-      auto a_values = a.matrix<InputIdxType>();
-      auto b_values = b.matrix<InputIdxType>(); 
-      auto lut = t.matrix<LUTValueType>();
-      auto output_values = out_tensor->matrix<LUTValueType>();
+      auto a_values = a.matrix<T>();
+      auto b_values = b.matrix<T>(); 
+      auto output_values = out_tensor->matrix<T>();
 
       for (int i {0}; i < a.dim_size(a_dim_remaining); ++i)
       {
@@ -94,9 +87,9 @@ class MatMulLUTOp : public OpKernel {
           output_values(i, j) = 0;
           for (int k {0}; k < a.dim_size(a_dim_product); ++k)
           {
-            auto a_idx = transpose_a_ ? a_values(k, i) : a_values(i, k);
-            auto b_idx = transpose_b_ ? b_values(j, k) : b_values(k, j);
-            output_values(i, j) += lut(a_idx, b_idx);
+            auto a_ = transpose_a_ ? a_values(k, i) : a_values(i, k);
+            auto b_ = transpose_b_ ? b_values(j, k) : b_values(k, j);
+            output_values(i, j) += a_ * b_;
           }
         }
       }
@@ -113,30 +106,26 @@ class MatMulLUTOp : public OpKernel {
 
 
 //-----------------------------------------------------------------------------
-REGISTER_OP("MatMulLUT")
-  .Input("activation_indices: InputIdxType")
-  .Input("weight_indices: InputIdxType")
-  .Input("lookup_table: LUTValueType")
-  .Output("product: LUTValueType")
+REGISTER_OP("MatMulNaive")
+  .Input("a: T")
+  .Input("b: T")
+  .Output("product: T")
   .Attr("transpose_a: bool = false")
   .Attr("transpose_b: bool = false")
-  .Attr("InputIdxType: {uint8, uint16, uint32}")
-  .Attr("LUTValueType: {int32, int64}")
+  .Attr("T: {float, double}")
   .SetShapeFn(tensorflow::shape_inference::MatMulShape);
 
-//-----------------------------------------------------------------------------
-#define REGISTER_MATMUL_KERNEL_BUILDER(T,U) \
-  REGISTER_KERNEL_BUILDER(                  \
-      Name("MatMulLUT")                     \
-      .Device(tensorflow::DEVICE_CPU)       \
-      .TypeConstraint<T>("InputIdxType")    \
-      .TypeConstraint<U>("LUTValueType"),   \
-      custom_ops::MatMulLUTOp<T, U>) 
 
 //-----------------------------------------------------------------------------
-REGISTER_MATMUL_KERNEL_BUILDER(tensorflow::uint8, tensorflow::int32);
-REGISTER_MATMUL_KERNEL_BUILDER(tensorflow::uint16, tensorflow::int32);
-REGISTER_MATMUL_KERNEL_BUILDER(tensorflow::uint32, tensorflow::int32);
-REGISTER_MATMUL_KERNEL_BUILDER(tensorflow::uint8, tensorflow::int64);
-REGISTER_MATMUL_KERNEL_BUILDER(tensorflow::uint16, tensorflow::int64);
-REGISTER_MATMUL_KERNEL_BUILDER(tensorflow::uint32, tensorflow::int64);
+REGISTER_KERNEL_BUILDER(
+    Name("MatMulNaive")
+    .Device(tensorflow::DEVICE_CPU)
+    .TypeConstraint<float>("T"),
+    custom_ops::MatMulNaiveOp<float>);
+
+//-----------------------------------------------------------------------------
+REGISTER_KERNEL_BUILDER(
+    Name("MatMulNaive")
+    .Device(tensorflow::DEVICE_CPU)
+    .TypeConstraint<double>("T"),
+    custom_ops::MatMulNaiveOp<double>);

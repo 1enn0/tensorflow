@@ -20,9 +20,13 @@ limitations under the License.
 #include "tensorflow/core/util/command_line_flags.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/public/session.h"
+#include "tensorflow/core/kernels/summary_interface.h"
+#include "tensorflow/contrib/tensorboard/db/summary_file_writer.h"
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/cc/ops/standard_ops.h"
 #include "tensorflow/cc/client/client_session.h"
+
+#pragma GCC diagnostic ignored "-Wunused-function"
 
 namespace {
 using namespace tensorflow;
@@ -115,34 +119,48 @@ void lookupUsingMyCustomOp()
 {
   Scope root = Scope::NewRootScope();
 
-  auto lut = Variable(root, {2, 2}, DT_FLOAT);
+  auto lut = Variable(root.WithOpName("lut"), {2, 2}, DT_FLOAT);
+  /* auto lutValues = Input({ */
+  /*   {42.f, 5.f}, {.5f, 2.f}, */
+  /* }); */
   auto lutValues = Input({
-    {42.f, 5.f}, {.5f, 2.f},
+    {1.f, 2.f}, {3.f, 4.f},
   });
   auto assign_lut = Assign(root.WithOpName("assign_lut"), lut, lutValues);
 
-  auto a = Const(root.WithOpName("a"), {{1u, 1u, 0u, 0u, 0u, 0u, 0u}});
+  /* auto a = Const(root.WithOpName("a"), {{1u, 1u, 0u, 0u, 0u, 0u, 0u},{1u, 0u, 1u, 1u, 0u, 0u, 0u}}); */
+  auto a = Const(root.WithOpName("a"), {{1u, 1u}, {0u, 0u}});
   /* auto b = Const(root.WithOpName("b"), {{1u}, {0u}, {1u}, {0u}, {0u}, {1u}, {1u}}); */
-  /* auto res = MatMulLut(root, lut, a, b); */
-  auto b = Const(root.WithOpName("b"), {{1u, 0u, 1u, 0u, 0u, 1u, 1u}});
-  auto res = MatMulLut(root, lut, a, b, MatMulLut::TransposeB(true));
+  /* auto res = MatMulLUT(root, lut, a, b); */
+  /* auto b = Const(root.WithOpName("b"), {{1u, 0u, 1u, 0u, 0u, 1u, 1u},{0u, 0u, 0u, 0u, 0u, 0u, 0u}}); */
+  auto b = Const(root.WithOpName("b"), {{1u, 0u},{1u, 0u}});
+  auto res0 = MatMulLUT(root.WithOpName("MatMulLUT"), a, b, lut, MatMulLUT::Attrs().TransposeA(false).TransposeB(false));
+  auto res1 = MatMulLUT(root.WithOpName("MatMulLUT"), a, b, lut, MatMulLUT::Attrs().TransposeA(false).TransposeB(true));
+  auto res2 = MatMulLUT(root.WithOpName("MatMulLUT"), a, b, lut, MatMulLUT::Attrs().TransposeA(true).TransposeB(false));
+  auto res3 = MatMulLUT(root.WithOpName("MatMulLUT"), a, b, lut, MatMulLUT::Attrs().TransposeA(true).TransposeB(true));
 
 
   ClientSession session (root);
-  /* writeGraphToTextFile(root); */
+  writeGraphToTextFile(root);
 
   // initialize lut variable by running assign op
   TF_CHECK_OK (session.Run({assign_lut}, nullptr));
 
   // fetch outputs
   std::vector<Tensor> outputs {};
-  TF_CHECK_OK (session.Run({res}, &outputs));
-  LOG(INFO) << "lookupUsingMyCustomOp(): outputs[0].shape() = " <<  outputs[0].shape() << "\n" << outputs[0].flat<float>();
+  TF_CHECK_OK (session.Run({res0, res1, res2, res3}, &outputs));
+  /* LOG(INFO) << "lookupUsingMyCustomOp(): outputs[0].shape() = " <<  outputs[0].shape() << "\n" << outputs[0].matrix<float>(); */
+  for (size_t i {0}; i < 4; ++i)
+    LOG(INFO) << "\n" << outputs[i].matrix<float>() << "\n";
 
 
   GraphDef graphDef;
   TF_CHECK_OK(root.ToGraphDef(&graphDef));
   WriteBinaryProto(Env::Default(), "/tmp/graph.pb", graphDef);
+
+  tensorflow::SummaryWriterInterface* writer {nullptr};
+  TF_CHECK_OK(CreateSummaryFileWriter(1, 1, "/tmp/graph", "custom_op", Env::Default(), &writer)); 
+  
 }
 
 
