@@ -7,29 +7,25 @@
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/framework/common_shape_fns.h"
 
-
-//-----------------------------------------------------------------------------
-namespace custom_ops {
-
 using CPUDevice = Eigen::ThreadPoolDevice;
-using tensorflow::Tensor;
-using tensorflow::TensorShape;
-using tensorflow::TensorShapeUtils;
-using tensorflow::OpKernel;
-using tensorflow::OpKernelContext;
-using tensorflow::OpKernelConstruction;
+namespace tf = tensorflow;
 
 //-----------------------------------------------------------------------------
 template <typename T>
-class MatMulNaiveOp : public OpKernel {
+class MatMulNaiveOp : public tf::OpKernel {
 //-----------------------------------------------------------------------------
+  using Tensor = tf::Tensor;
+  using TensorShape = tf::TensorShape;
+  using TensorShapeUtils = tf::TensorShapeUtils;
+
   public:
-    explicit MatMulNaiveOp(OpKernelConstruction* ctx) : OpKernel(ctx) {
+
+    explicit MatMulNaiveOp(tf::OpKernelConstruction* ctx) : tf::OpKernel(ctx) {
       OP_REQUIRES_OK(ctx, ctx->GetAttr("transpose_a", &transpose_a_));
       OP_REQUIRES_OK(ctx, ctx->GetAttr("transpose_b", &transpose_b_));
     }
     
-    void Compute(OpKernelContext* ctx) override 
+    void Compute(tf::OpKernelContext* ctx) override 
     {
       // get input tensors
       const Tensor& a = ctx->input(0);
@@ -102,9 +98,6 @@ class MatMulNaiveOp : public OpKernel {
 };
 //-----------------------------------------------------------------------------
 
-} // custom_ops
-
-
 //-----------------------------------------------------------------------------
 REGISTER_OP("MatMulNaive")
   .Input("a: T")
@@ -112,20 +105,21 @@ REGISTER_OP("MatMulNaive")
   .Output("product: T")
   .Attr("transpose_a: bool = false")
   .Attr("transpose_b: bool = false")
-  .Attr("T: {float, double}")
-  .SetShapeFn(tensorflow::shape_inference::MatMulShape);
-
-
-//-----------------------------------------------------------------------------
-REGISTER_KERNEL_BUILDER(
-    Name("MatMulNaive")
-    .Device(tensorflow::DEVICE_CPU)
-    .TypeConstraint<float>("T"),
-    custom_ops::MatMulNaiveOp<float>);
+  .Attr("T: {float, double, int32, int64, uint32, uint64} = DT_FLOAT")
+  .SetShapeFn(tf::shape_inference::MatMulShape);
 
 //-----------------------------------------------------------------------------
-REGISTER_KERNEL_BUILDER(
-    Name("MatMulNaive")
-    .Device(tensorflow::DEVICE_CPU)
-    .TypeConstraint<double>("T"),
-    custom_ops::MatMulNaiveOp<double>);
+#define REGISTER_MATMUL_NAIVE_KERNEL_BUILDER(T) \
+  REGISTER_KERNEL_BUILDER(                      \
+      Name("MatMulNaive")                       \
+      .Device(tf::DEVICE_CPU)                   \
+      .TypeConstraint<T>("T"),                  \
+      MatMulNaiveOp<T>) 
+
+//-----------------------------------------------------------------------------
+REGISTER_MATMUL_NAIVE_KERNEL_BUILDER(float);
+REGISTER_MATMUL_NAIVE_KERNEL_BUILDER(double);
+REGISTER_MATMUL_NAIVE_KERNEL_BUILDER(tf::uint32);
+REGISTER_MATMUL_NAIVE_KERNEL_BUILDER(tf::uint64);
+REGISTER_MATMUL_NAIVE_KERNEL_BUILDER(tf::int32);
+REGISTER_MATMUL_NAIVE_KERNEL_BUILDER(tf::int64);

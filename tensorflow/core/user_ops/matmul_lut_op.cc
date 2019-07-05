@@ -8,33 +8,25 @@
 #include "tensorflow/core/framework/common_shape_fns.h"
 /* #include "tensorflow/core/kernels/fill_functor.h" */
 
-
-//-----------------------------------------------------------------------------
-namespace custom_ops {
-
+namespace tf = tensorflow;
 using CPUDevice = Eigen::ThreadPoolDevice;
-using tensorflow::Tensor;
-using tensorflow::TensorShape;
-using tensorflow::TensorShapeUtils;
-using tensorflow::OpKernel;
-using tensorflow::OpKernelContext;
-using tensorflow::OpKernelConstruction;
-using tensorflow::uint8;
-using tensorflow::uint16;
-using tensorflow::uint32;
-using tensorflow::int64;
 
 //-----------------------------------------------------------------------------
 template <typename InputIdxType, typename LUTValueType>
-class MatMulLUTOp : public OpKernel {
+class MatMulLUTOp : public tf::OpKernel {
 //-----------------------------------------------------------------------------
+  using Tensor = tf::Tensor;
+  using TensorShape = tf::TensorShape;
+  using TensorShapeUtils = tf::TensorShapeUtils;
+
   public:
-    explicit MatMulLUTOp(OpKernelConstruction* ctx) : OpKernel(ctx) {
+
+    explicit MatMulLUTOp(tf::OpKernelConstruction* ctx) : tf::OpKernel(ctx) {
       OP_REQUIRES_OK(ctx, ctx->GetAttr("transpose_a", &transpose_a_));
       OP_REQUIRES_OK(ctx, ctx->GetAttr("transpose_b", &transpose_b_));
     }
     
-    void Compute(OpKernelContext* ctx) override 
+    void Compute(tf::OpKernelContext* ctx) override 
     {
       // get input tensors
       const Tensor& a = ctx->input(0);
@@ -109,9 +101,6 @@ class MatMulLUTOp : public OpKernel {
 };
 //-----------------------------------------------------------------------------
 
-} // custom_ops
-
-
 //-----------------------------------------------------------------------------
 REGISTER_OP("MatMulLUT")
   .Input("activation_indices: InputIdxType")
@@ -120,23 +109,23 @@ REGISTER_OP("MatMulLUT")
   .Output("product: LUTValueType")
   .Attr("transpose_a: bool = false")
   .Attr("transpose_b: bool = false")
-  .Attr("InputIdxType: {uint8, uint16, uint32}")
-  .Attr("LUTValueType: {int32, int64}")
-  .SetShapeFn(tensorflow::shape_inference::MatMulShape);
+  .Attr("InputIdxType: {uint8, uint16, uint32} = DT_UINT16")
+  .Attr("LUTValueType: {int32, int64} = DT_INT32")
+  .SetShapeFn(tf::shape_inference::MatMulShape);
 
 //-----------------------------------------------------------------------------
-#define REGISTER_MATMUL_KERNEL_BUILDER(T,U) \
-  REGISTER_KERNEL_BUILDER(                  \
-      Name("MatMulLUT")                     \
-      .Device(tensorflow::DEVICE_CPU)       \
-      .TypeConstraint<T>("InputIdxType")    \
-      .TypeConstraint<U>("LUTValueType"),   \
-      custom_ops::MatMulLUTOp<T, U>) 
+#define REGISTER_MATMUL_LUT_KERNEL_BUILDER(T,U) \
+  REGISTER_KERNEL_BUILDER(                      \
+      Name("MatMulLUT")                         \
+      .Device(tf::DEVICE_CPU)                   \
+      .TypeConstraint<T>("InputIdxType")        \
+      .TypeConstraint<U>("LUTValueType"),       \
+      MatMulLUTOp<T, U>) 
 
 //-----------------------------------------------------------------------------
-REGISTER_MATMUL_KERNEL_BUILDER(tensorflow::uint8, tensorflow::int32);
-REGISTER_MATMUL_KERNEL_BUILDER(tensorflow::uint16, tensorflow::int32);
-REGISTER_MATMUL_KERNEL_BUILDER(tensorflow::uint32, tensorflow::int32);
-REGISTER_MATMUL_KERNEL_BUILDER(tensorflow::uint8, tensorflow::int64);
-REGISTER_MATMUL_KERNEL_BUILDER(tensorflow::uint16, tensorflow::int64);
-REGISTER_MATMUL_KERNEL_BUILDER(tensorflow::uint32, tensorflow::int64);
+REGISTER_MATMUL_LUT_KERNEL_BUILDER(tf::uint8, tf::int32);
+REGISTER_MATMUL_LUT_KERNEL_BUILDER(tf::uint16, tf::int32);
+REGISTER_MATMUL_LUT_KERNEL_BUILDER(tf::uint32, tf::int32);
+REGISTER_MATMUL_LUT_KERNEL_BUILDER(tf::uint8, tf::int64);
+REGISTER_MATMUL_LUT_KERNEL_BUILDER(tf::uint16, tf::int64);
+REGISTER_MATMUL_LUT_KERNEL_BUILDER(tf::uint32, tf::int64);
