@@ -21,10 +21,10 @@ from tensorflow.python.framework import ops
 from tensorflow.python.keras.optimizer_v2 import optimizer_v2
 from tensorflow.python.ops import resource_variable_ops
 from tensorflow.python.training import training_ops
-from tensorflow.python.util.tf_export import tf_export
+from tensorflow.python.util.tf_export import keras_export
 
 
-@tf_export("keras.optimizers.SGD", v1=[])
+@keras_export("keras.optimizers.SGD")
 class SGD(optimizer_v2.OptimizerV2):
   """Stochastic gradient descent and momentum optimizer.
 
@@ -60,7 +60,7 @@ class SGD(optimizer_v2.OptimizerV2):
   """
 
   def __init__(self,
-               learning_rate=0.001,
+               learning_rate=0.01,
                momentum=0.0,
                nesterov=False,
                name="SGD",
@@ -74,7 +74,11 @@ class SGD(optimizer_v2.OptimizerV2):
       nesterov: boolean. Whether to apply Nesterov momentum.
       name: Optional name prefix for the operations created when applying
         gradients.  Defaults to 'SGD'.
-      **kwargs: keyword arguments. Allowed to be {`decay`}
+      **kwargs: keyword arguments. Allowed to be {`clipnorm`, `clipvalue`, `lr`,
+        `decay`}. `clipnorm` is clip gradients by norm; `clipvalue` is clip
+        gradients by value, `decay` is included for backward compatibility to
+        allow time inverse decay of learning rate. `lr` is included for backward
+        compatibility, recommended to use `learning_rate` instead.
     """
     super(SGD, self).__init__(name, **kwargs)
     self._set_hyper("learning_rate", kwargs.get("lr", learning_rate))
@@ -96,7 +100,7 @@ class SGD(optimizer_v2.OptimizerV2):
 
   def _resource_apply_dense(self, grad, var):
     var_dtype = var.dtype.base_dtype
-    lr_t = self._decayed_lr(var_dtype)
+    lr_t = self._decayed_lr_t[var_dtype]
     if self._momentum:
       momentum_var = self.get_slot(var, "momentum")
       return training_ops.resource_apply_keras_momentum(
@@ -117,14 +121,14 @@ class SGD(optimizer_v2.OptimizerV2):
           grad, var, indices)
     else:
       var_dtype = var.dtype.base_dtype
-      lr_t = self._decayed_lr(var_dtype)
+      lr_t = self._decayed_lr_t[var_dtype]
       return resource_variable_ops.resource_scatter_add(var.handle, indices,
                                                         -grad * lr_t)
 
   def _resource_apply_sparse(self, grad, var, indices):
     # This method is only needed for momentum optimization.
     var_dtype = var.dtype.base_dtype
-    lr_t = self._decayed_lr(var_dtype)
+    lr_t = self._decayed_lr_t[var_dtype]
     momentum_var = self.get_slot(var, "momentum")
     return training_ops.resource_sparse_apply_keras_momentum(
         var.handle,

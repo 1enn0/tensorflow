@@ -25,10 +25,10 @@ import numpy as np
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.datasets.cifar import load_batch
 from tensorflow.python.keras.utils.data_utils import get_file
-from tensorflow.python.util.tf_export import tf_export
+from tensorflow.python.util.tf_export import keras_export
 
 
-@tf_export('keras.datasets.cifar10.load_data')
+@keras_export('keras.datasets.cifar10.load_data')
 def load_data():
   """Loads CIFAR10 dataset.
 
@@ -58,5 +58,8 @@ def load_data():
   if K.image_data_format() == 'channels_last':
     x_train = x_train.transpose(0, 2, 3, 1)
     x_test = x_test.transpose(0, 2, 3, 1)
+
+  x_test = x_test.astype(x_train.dtype)
+  y_test = y_test.astype(y_train.dtype)
 
   return (x_train, y_train), (x_test, y_test)

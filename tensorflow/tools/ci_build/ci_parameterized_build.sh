@@ -98,6 +98,8 @@
 #
 # This script can be used by Jenkins parameterized / matrix builds.
 
+set -ex
+
 # Helper function: Convert to lower case
 to_lower () {
   echo "$1" | tr '[:upper:]' '[:lower:]'
@@ -615,14 +617,8 @@ fi
 
 # Set a disk usage trap.
 function debug_disk_usage {
-    echo "-- script finished disk usage"
-    df -h
-    echo "-- disk usage report in ${TMP_DIR}"
+    echo "Finished script... disk usage report in ${TMP_DIR}"
     du -k -d 2 ${TMP_DIR} | sort -n -r
-    echo "-- disk usage report in /tmpfs"
-    if [ -d "/tmpfs" ]; then
-      du -k -d 2 /tmpfs | sort -n -r
-    fi
 }
 # trap debug_disk_usage EXIT
 

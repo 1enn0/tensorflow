@@ -32,6 +32,7 @@ from tensorflow.python.ops import gradients_impl
 from tensorflow.python.ops import nn_ops
 import tensorflow.python.ops.nn_grad  # pylint: disable=unused-import
 from tensorflow.python.platform import test
+from tensorflow.python.framework import test_util
 
 
 def GetTestConfigs():
@@ -51,7 +52,7 @@ class Conv3DTest(test.TestCase):
 
   def _DtypesToTest(self, use_gpu):
     if use_gpu:
-      if not test_util.CudaSupportsHalfMatMulAndConv():
+      if not test_util.GpuSupportsHalfMatMulAndConv():
         return [dtypes.float64, dtypes.float32]
       else:
         # It is important that float32 comes before float16 here,
@@ -220,7 +221,7 @@ class Conv3DTest(test.TestCase):
         expected=expected_output)
 
   def testConv3D1x1x1Filter2x1x1Dilation(self):
-    if test.is_gpu_available(cuda_only=True):
+    if test.is_gpu_available(cuda_only=True) or test_util.IsMklEnabled():
       self._VerifyDilatedConvValues(
           tensor_in_sizes=[1, 3, 6, 1, 1],
           filter_in_sizes=[1, 1, 1, 1, 1],
@@ -245,7 +246,7 @@ class Conv3DTest(test.TestCase):
         expected=expected_output)
 
   def testConv3D2x2x2Filter1x2x1Dilation(self):
-    if test.is_gpu_available(cuda_only=True):
+    if test.is_gpu_available(cuda_only=True) or test_util.IsMklEnabled():
       self._VerifyDilatedConvValues(
           tensor_in_sizes=[1, 4, 6, 3, 1],
           filter_in_sizes=[2, 2, 2, 1, 1],
@@ -653,7 +654,7 @@ class Conv3DTest(test.TestCase):
         padding="SAME",
         test_input=False)
 
-  # Test the fast path in gemm_pack_rhs/mkldnn_gemm_pack, when channel
+  # Test the fast path in gemm_pack_rhs/gemm_pack_colmajor_block, when channel
   # dimension is a multiple of packet size.
   @test_util.run_deprecated_v1
   def testInputGradientValidPaddingStrideOneFastPath(self):
@@ -741,6 +742,7 @@ class Conv3DTest(test.TestCase):
       self.assertArrayNear(expected_value.flatten(), actual_value.flatten(),
                            err)
 
+  @test_util.run_deprecated_v1
   def testConv3D2x2Depth3ValidBackpropFilterStride1x1Dilation2x1(self):
     if test.is_gpu_available(cuda_only=True):
       for (data_format, use_gpu) in GetTestConfigs():
@@ -756,6 +758,7 @@ class Conv3DTest(test.TestCase):
             err=1e-5,
             mode="filter")
 
+  @test_util.run_deprecated_v1
   def testConv3D2x2Depth3ValidBackpropInputStride1x1Dilation2x1(self):
     if test.is_gpu_available(cuda_only=True):
       for (data_format, use_gpu) in GetTestConfigs():
