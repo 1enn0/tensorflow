@@ -643,7 +643,7 @@ cc_library(
 
 # TODO(b/122597976): Eliminate TF dependency from lite/kernels:test_util,
 # in turn eliminating the need to use tf_cc_test for any dependent tests.
-tf_cc_test(
+cc_test(
     name = "tensor_utils_test",
     srcs = ["tensor_utils_test.cc"],
     linkopts = select({
