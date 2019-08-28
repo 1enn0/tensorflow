@@ -18,7 +18,8 @@ limitations under the License.
 #define USE_EIGEN_TENSOR
 #define EIGEN_USE_THREADS
 
-#include "tensorflow/examples/conv2d_lut/conv2d_lut_op_kernel.h"
+#include "tensorflow/examples/conv2d_lut/kernels/conv2d_lut_op_kernel.h"
+#include "tensorflow/examples/conv2d_lut/kernels/conv2d_lut.h"
 
 #include <string.h>
 
@@ -26,15 +27,12 @@ limitations under the License.
 #include <vector>
 
 #include "tensorflow/core/framework/bounds_check.h"
-/* #include "tensorflow/core/framework/numeric_op.h" */
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/register_types.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/framework/tensor_slice.h"
 #include "tensorflow/core/framework/types.h"
-#include "tensorflow/core/kernels/conv_2d.h"
-//#include "tensorflow/core/kernels/deep_conv2d.h"
 #include "tensorflow/core/kernels/ops_util.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/gtl/array_slice.h"
@@ -67,7 +65,7 @@ struct LaunchGeneric {
       // For 1x1 kernel, the 2D convolution is reduced to matrix
       // multiplication.
       //
-      // TODO(vrv): We should be able to call SpatialConvolution
+      // TODO(vrv): We should be able to call SpatialConvolutionLUT
       // and it will produce the same result, but doing so
       // led to NaNs during training.  Using matmul instead for now.
       int conv_width = 1;  // Width for the convolution step.
@@ -100,18 +98,26 @@ struct LaunchGeneric {
           filter.shaped<T, 2>({k, filter.dim_size(3)}), dim_pair);
     } else {
       if (padding == EXPLICIT) {
-        functor::SpatialConvolution<Device, T>()(
-            ctx->eigen_device<Device>(), output->tensor<T, 4>(),
-            input.tensor<T, 4>(), filter.tensor<T, 4>(), row_stride, col_stride,
-            row_dilation, col_dilation, static_cast<int>(explicit_paddings[2]),
+        functor::SpatialConvolutionLUT<Device, T, U>()(
+            ctx->eigen_device<Device>(), 
+            output->tensor<U, 4>(),
+            input.tensor<T, 4>(), filter.tensor<T, 4>(), 
+            lut.tensor<U, 2>(), 
+            row_stride, col_stride,
+            row_dilation, col_dilation, 
+            static_cast<int>(explicit_paddings[2]),
             static_cast<int>(explicit_paddings[3]),
             static_cast<int>(explicit_paddings[4]),
             static_cast<int>(explicit_paddings[5]));
       } else {
-        functor::SpatialConvolution<Device, T>()(
-            ctx->eigen_device<Device>(), output->tensor<T, 4>(),
-            input.tensor<T, 4>(), filter.tensor<T, 4>(), row_stride, col_stride,
-            row_dilation, col_dilation, BrainPadding2EigenPadding(padding));
+        functor::SpatialConvolutionLUT<Device, T, U>()(
+            ctx->eigen_device<Device>(), 
+            output->tensor<U, 4>(),
+            input.tensor<T, 4>(), filter.tensor<T, 4>(), 
+            lut.tensor<U, 2>(), 
+            row_stride, col_stride,
+            row_dilation, col_dilation, 
+            BrainPadding2EigenPadding(padding));
       }
     }
   }
@@ -153,62 +159,6 @@ struct LaunchConv2DLUTOp<CPUDevice, T, U> {
                                      data_format);
   }
 };
-
-//template <typename Device, typename T>
-//class LaunchDeepConvOp {
-// public:
-//  static bool Run(OpKernelContext* ctx, const Tensor& input,
-//                  const Tensor& filter, int batch, int input_rows,
-//                  int input_cols, int in_depth, int filter_rows,
-//                  int filter_cols, int pad_rows, int pad_cols, int out_rows,
-//                  int /*out_cols*/, int /*out_depth*/, int /*dilation_rows*/,
-//                  int /*dilation_cols*/, int /*stride_rows*/,
-//                  int /*stride_cols*/, Tensor* /*output*/,
-//                  TensorFormat /*data_format*/) {
-//    return false;
-//  }
-//};
-//
-//// Conditionally launches DeepConv operation based on convolution parameters.
-//template <>
-//class LaunchDeepConvOp<CPUDevice, float> {
-// public:
-//  static bool Run(OpKernelContext* ctx, const Tensor& input,
-//                  const Tensor& filter, int batch, int input_rows,
-//                  int input_cols, int in_depth, int filter_rows,
-//                  int filter_cols, int pad_rows, int pad_cols, int out_rows,
-//                  int out_cols, int out_depth, int dilation_rows,
-//                  int dilation_cols, int stride_rows, int stride_cols,
-//                  Tensor* output, TensorFormat data_format) {
-//    if (data_format != FORMAT_NHWC || dilation_rows != 1 ||
-//        dilation_cols != 1 ||
-//        !CanUseDeepConv2DLUT(stride_rows, stride_cols, filter_rows, filter_cols,
-//                          in_depth, out_depth, out_rows, out_cols)) {
-//      return false;
-//    }
-//
-//    Conv2DLUTArgs args;
-//    args.batch = batch;
-//    args.in_rows = input_rows;
-//    args.in_cols = input_cols;
-//    args.in_depth = in_depth;
-//    args.filter_rows = filter_rows;
-//    args.filter_cols = filter_cols;
-//    args.pad_rows = pad_rows;
-//    args.pad_cols = pad_cols;
-//    args.out_rows = out_rows;
-//    args.out_cols = out_cols;
-//    args.out_depth = out_depth;
-//
-//    auto input_ptr = input.template flat<float>().data();
-//    auto filter_ptr = filter.template flat<float>().data();
-//    auto output_ptr = output->template flat<float>().data();
-//
-//    functor::DeepConv2DLUT<CPUDevice, float>()(ctx, args, input_ptr, filter_ptr,
-//                                            output_ptr);
-//    return true;
-//  }
-//};
 
 #define TF_REQUIRES(EXP, STATUS)                \
   do {                                          \
@@ -424,18 +374,6 @@ class Conv2DLUTOp : public OpKernel {
       return;
     }
 
-    /* if (params_.padding != EXPLICIT && */
-    /*     LaunchDeepConvOp<Device, T>::Run( */
-    /*         context, input, filter, dimensions.batch, dimensions.input_rows, */
-    /*         dimensions.input_cols, dimensions.in_depth, dimensions.filter_rows, */
-    /*         dimensions.filter_cols, dimensions.pad_rows_before, */
-    /*         dimensions.pad_cols_before, dimensions.out_rows, */
-    /*         dimensions.out_cols, dimensions.out_depth, dimensions.dilation_rows, */
-    /*         dimensions.dilation_cols, dimensions.stride_rows, */
-    /*         dimensions.stride_cols, output, params_.data_format)) { */
-    /*   return; */
-    /* } */
-
     launcher_(context, input, filter, lut,
               dimensions.dilation_rows, dimensions.dilation_cols,
               dimensions.stride_rows, dimensions.stride_cols, 
@@ -461,10 +399,4 @@ class Conv2DLUTOp : public OpKernel {
       Conv2DLUTOp<CPUDevice, T, U>);
 
 REGISTER_CPU(int32, int32);
-REGISTER_CPU(int32, float);
-
-
-// To be used inside depthwise_conv_op.cc.
-/* template struct LaunchConv2DLUTOp<CPUDevice, Eigen::half>; */
-/* template struct LaunchConv2DLUTOp<CPUDevice, float>; */
-/* template struct LaunchConv2DLUTOp<CPUDevice, double>; */
+/* REGISTER_CPU(int32, float); */
