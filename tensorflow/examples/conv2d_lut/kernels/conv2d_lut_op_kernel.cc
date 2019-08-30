@@ -55,7 +55,6 @@ struct LaunchGeneric {
                   int row_stride, int col_stride,
                   int row_dilation, int col_dilation, 
                   const Padding& padding,
-                  const std::vector<int64>& explicit_paddings, 
                   Tensor* output,
                   TensorFormat data_format) {
     CHECK(data_format == FORMAT_NHWC) << "Generic conv implementation only "
@@ -97,19 +96,6 @@ struct LaunchGeneric {
           input.shaped<T, 2>({input.dim_size(0), k}),
           filter.shaped<T, 2>({k, filter.dim_size(3)}), dim_pair);
     } else {
-      if (padding == EXPLICIT) {
-        functor::SpatialConvolutionLUT<Device, T, U>()(
-            ctx->eigen_device<Device>(), 
-            output->tensor<U, 4>(),
-            input.tensor<T, 4>(), filter.tensor<T, 4>(), 
-            lut.tensor<U, 2>(), 
-            row_stride, col_stride,
-            row_dilation, col_dilation, 
-            static_cast<int>(explicit_paddings[2]),
-            static_cast<int>(explicit_paddings[3]),
-            static_cast<int>(explicit_paddings[4]),
-            static_cast<int>(explicit_paddings[5]));
-      } else {
         functor::SpatialConvolutionLUT<Device, T, U>()(
             ctx->eigen_device<Device>(), 
             output->tensor<U, 4>(),
@@ -118,7 +104,6 @@ struct LaunchGeneric {
             row_stride, col_stride,
             row_dilation, col_dilation, 
             BrainPadding2EigenPadding(padding));
-      }
     }
   }
 };
@@ -131,7 +116,6 @@ struct LaunchConv2DLUTOp<CPUDevice, T, U> {
                   int row_dilation, int col_dilation, 
                   int row_stride, int col_stride,
                   const Padding& padding,
-                  const std::vector<int64>& explicit_paddings, 
                   Tensor* output,
                   TensorFormat data_format) {
     if (data_format != FORMAT_NHWC) {
@@ -144,17 +128,10 @@ struct LaunchConv2DLUTOp<CPUDevice, T, U> {
     OP_REQUIRES(ctx, in_depth == filter.dim_size(2),
                 errors::Unimplemented("Generic conv implementation does not "
                                       "support grouped convolutions for now."));
-    for (int64 explicit_padding : explicit_paddings) {
-      if (!FastBoundsCheck(explicit_padding, std::numeric_limits<int>::max())) {
-        ctx->SetStatus(errors::InvalidArgument("filter too large"));
-        return;
-      }
-    }
     LaunchGeneric<CPUDevice, T, U>()(ctx, input, filter, lut,
                                      row_stride, col_stride,
                                      row_dilation, col_dilation, 
                                      padding,
-                                     explicit_paddings, 
                                      output, 
                                      data_format);
   }
@@ -170,10 +147,6 @@ Status InitConv2DLUTParameters(const OpKernelConstruction* context,
   TF_RETURN_IF_ERROR(context->GetAttr("dilations", &params->dilations));
   TF_RETURN_IF_ERROR(context->GetAttr("strides", &params->strides));
   TF_RETURN_IF_ERROR(context->GetAttr("padding", &params->padding));
-  if (context->HasAttr("explicit_paddings")) {
-    TF_RETURN_IF_ERROR(
-        context->GetAttr("explicit_paddings", &params->explicit_paddings));
-  }
   string data_format_string;
   TF_RETURN_IF_ERROR(context->GetAttr("data_format", &data_format_string));
   TF_REQUIRES(FormatFromString(data_format_string, &params->data_format),
@@ -212,10 +185,6 @@ Status InitConv2DLUTParameters(const OpKernelConstruction* context,
   TF_REQUIRES(
       dilation_h > 0 && dilation_w > 0,
       errors::InvalidArgument("Dilated rates should be larger than 0."));
-
-  TF_RETURN_IF_ERROR(CheckValidPadding(params->padding,
-                                       params->explicit_paddings,
-                                       /*num_dims=*/4, data_format));
 
   return Status::OK();
 }
@@ -286,12 +255,6 @@ Status ComputeConv2DLUTDimension(const Conv2DLUTParameters& params,
       GetTensorDim(params.dilations, params.data_format, 'W');
 
   int64 pad_rows_before, pad_rows_after, pad_cols_before, pad_cols_after;
-  if (params.padding == Padding::EXPLICIT) {
-    GetExplicitPaddingForDim(params.explicit_paddings, params.data_format, 'H',
-                             &pad_rows_before, &pad_rows_after);
-    GetExplicitPaddingForDim(params.explicit_paddings, params.data_format, 'W',
-                             &pad_cols_before, &pad_cols_after);
-  }
 
   // Compute windowed output sizes for rows and columns.
   int64 out_rows = 0, out_cols = 0;
@@ -378,9 +341,15 @@ class Conv2DLUTOp : public OpKernel {
               dimensions.dilation_rows, dimensions.dilation_cols,
               dimensions.stride_rows, dimensions.stride_cols, 
               params_.padding,
-              params_.explicit_paddings, 
               output, 
               params_.data_format);
+    /* auto out = output->tensor<U, 4>(); */
+    /* out.setZero(); */
+
+
+
+
+
   }
 
  private:

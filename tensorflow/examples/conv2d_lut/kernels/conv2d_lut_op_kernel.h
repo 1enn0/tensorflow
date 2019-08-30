@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#ifndef CONV2D_LUT_OP_KERNEL_H_
-#define CONV2D_LUT_OP_KERNEL_H_
+#ifndef CONV2D_LUT_KERNELS_CONV2D_LUT_OP_KERNEL_H_
+#define CONV2D_LUT_KERNELS_CONV2D_LUT_OP_KERNEL_H_
 
 #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #include "tensorflow/core/framework/resource_mgr.h"
@@ -30,7 +30,6 @@ struct LaunchConv2DLUTOp {
                   int row_dilation, int col_dilation, 
                   int row_stride, int col_stride,
                   const Padding& padding,
-                  const std::vector<int64>& explicit_paddings, 
                   Tensor* output,
                   TensorFormat data_format);
 };
@@ -67,7 +66,6 @@ struct Conv2DLUTParameters {
   std::vector<int32> strides;
   Padding padding;
   TensorFormat data_format;
-  std::vector<int64> explicit_paddings;
 };
 
 
@@ -83,4 +81,4 @@ Status ComputeConv2DLUTDimension(const Conv2DLUTParameters& params,
                               const Tensor& input, const Tensor& filter,
                               Conv2DLUTDimensions* dimensions);
 
-#endif  // CONV2D_LUT_OP_KERNEL_H_
+#endif  // CONV2D_LUT_KERNELS_CONV2D_LUT_OP_KERNEL_H_

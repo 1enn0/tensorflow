@@ -29,8 +29,7 @@ REGISTER_OP("Conv2DLUT")
     .Attr("InputIdxType: {int32}")
     .Attr("LUTValueType: {int32, float}")
     .Attr("strides: list(int)")
-    .Attr(tf::GetPaddingAttrStringWithExplicit())
-    .Attr(tf::GetExplicitPaddingsAttrString())
+    .Attr(tf::GetPaddingAttrString())
     .Attr(tf::GetConvnetDataFormatAttrString())
     .Attr("dilations: list(int) = [1, 1, 1, 1]")
-    .SetShapeFn(tf::shape_inference::Conv2DShapeWithExplicitPadding);
+    .SetShapeFn(tf::shape_inference::Conv2DShape);

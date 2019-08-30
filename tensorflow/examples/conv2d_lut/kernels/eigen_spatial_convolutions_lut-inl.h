@@ -1540,10 +1540,6 @@ struct gemm_pack_rhs<
  * (aka atrous convolution), sampling every col_in_stride, row_in_stride input
  * pixels.
  *
- * If padding_top, padding_bottom, padding_left, or padding_right is specified,
- * then those paddings will be used to pad the input, and padding_type must be
- * PADDING_VALID.
- *
  * The result can be assigned to a tensor of rank equal to the rank of the
  * input. The dimensions of the result will be filters, height, width (and
  * others if applicable).
@@ -1557,6 +1553,39 @@ struct gemm_pack_rhs<
  */
 template <typename Input, typename Kernel, typename LookupTable,
           typename OutputKernel = const NoOpOutputKernel>
+/* EIGEN_DEVICE_FUNC */
+/*     EIGEN_ALWAYS_INLINE static const typename internal::conditional< */
+/*         internal::traits<Input>::Layout == ColMajor, */
+/*         TensorCwiseNullaryOp< */
+/*             internal::scalar_constant_op<typename internal::traits<Input>::Scalar>, */
+/*             TensorReshapingOp< */
+/*                 const DSizes<typename internal::traits<Input>::Index, */
+/*                              internal::traits<Input>::NumDimensions>, */
+/*                 const TensorContractionOp< */
+/*                     const array<IndexPair<typename internal::traits<Input>::Index>, */
+/*                                 1>, */
+/*                     const TensorReshapingOp< */
+/*                         const DSizes<typename internal::traits<Input>::Index, 2>, */
+/*                         const Kernel>, */
+/*                     const TensorReshapingOp< */
+/*                         const DSizes<typename internal::traits<Input>::Index, 2>, */
+/*                         const TensorImagePatchOp<Dynamic, Dynamic, const Input> >, */
+/*                     const OutputKernel> > >, */
+/*         TensorCwiseNullaryOp< */
+/*             internal::scalar_constant_op<typename internal::traits<Input>::Scalar>, */
+/*             TensorReshapingOp< */
+/*                 const DSizes<typename internal::traits<Input>::Index, */
+/*                              internal::traits<Input>::NumDimensions>, */
+/*                 const TensorContractionOp< */
+/*                     const array<IndexPair<typename internal::traits<Input>::Index>, */
+/*                                 1>, */
+/*                     const TensorReshapingOp< */
+/*                         const DSizes<typename internal::traits<Input>::Index, 2>, */
+/*                         const TensorImagePatchOp<Dynamic, Dynamic, const Input> >, */
+/*                     const TensorReshapingOp< */
+/*                         const DSizes<typename internal::traits<Input>::Index, 2>, */
+/*                         const Kernel>, */
+/*                     const OutputKernel> > > >::type */
 EIGEN_DEVICE_FUNC
     EIGEN_ALWAYS_INLINE static const typename internal::conditional<
         internal::traits<Input>::Layout == ColMajor,
@@ -1591,9 +1620,7 @@ EIGEN_DEVICE_FUNC
                        const PaddingType padding_type = PADDING_SAME,
                        const Index row_in_stride = 1,
                        const Index col_in_stride = 1,
-                       const OutputKernel& output_kernel = OutputKernel(),
-                       Index padding_top = 0, Index padding_bottom = 0,
-                       Index padding_left = 0, Index padding_right = 0) {
+                       const OutputKernel& output_kernel = OutputKernel()) {
   typedef typename internal::traits<Input>::Index TensorIndex;
   TensorRef<Tensor<typename internal::traits<Input>::Scalar,
                    internal::traits<Input>::NumDimensions,
@@ -1640,23 +1667,18 @@ EIGEN_DEVICE_FUNC
       isColMajor ? in.dimension(1) : in.dimension(NumDims - 2);
   const TensorIndex InputCols =
       isColMajor ? in.dimension(2) : in.dimension(NumDims - 3);
-  const bool padding_explicit =
-      (padding_top || padding_bottom || padding_left || padding_right);
 
   TensorIndex out_height;
   TensorIndex out_width;
   switch (padding_type) {
     case PADDING_VALID: {
-      const TensorIndex InputRowsEff = InputRows + padding_top + padding_bottom;
-      const TensorIndex InputColsEff = InputCols + padding_left + padding_right;
-      out_height = numext::ceil((InputRowsEff - kernelRowsEff + 1.f) /
+      out_height = numext::ceil((InputRows - kernelRowsEff + 1.f) /
                                 static_cast<float>(row_stride));
-      out_width = numext::ceil((InputColsEff - kernelColsEff + 1.f) /
+      out_width = numext::ceil((InputCols - kernelColsEff + 1.f) /
                                static_cast<float>(col_stride));
       break;
     }
     case PADDING_SAME: {
-      eigen_assert(!padding_explicit);
       out_height = numext::ceil(InputRows / static_cast<float>(row_stride));
       out_width = numext::ceil(InputCols / static_cast<float>(col_stride));
       break;
@@ -1719,50 +1741,38 @@ EIGEN_DEVICE_FUNC
     kernel_dims[0] = kernelChannels * kernelRows * kernelCols;
     kernel_dims[1] = kernelFilters;
   }
-  if (padding_explicit) {
-    return choose(
-        Cond<internal::traits<Input>::Layout == ColMajor>(),
-        kernel.reshape(kernel_dims)
-            .contract(input
-                          .extract_image_patches(
-                              kernelRows, kernelCols, row_stride, col_stride,
-                              row_in_stride, col_in_stride,
-                              /*row_inflate_stride=*/1,
-                              /*col_inflate_stride=*/1, padding_top,
-                              padding_bottom, padding_left, padding_right,
-                              /*padding_value=*/0)
-                          .reshape(pre_contract_dims),
-                      contract_dims, output_kernel)
-            .reshape(post_contract_dims),
-        input
-            .extract_image_patches(kernelRows, kernelCols, row_stride,
-                                   col_stride, row_in_stride, col_in_stride,
-                                   /*row_inflate_stride=*/1,
-                                   /*col_inflate_stride=*/1, padding_top,
-                                   padding_bottom, padding_left, padding_right,
-                                   /*padding_value=*/0)
-            .reshape(pre_contract_dims)
-            .contract(kernel.reshape(kernel_dims), contract_dims, output_kernel)
-            .reshape(post_contract_dims));
-  } else {
-    return choose(
-        Cond<internal::traits<Input>::Layout == ColMajor>(),
-        kernel.reshape(kernel_dims)
-            .contract(input
-                          .extract_image_patches(
-                              kernelRows, kernelCols, row_stride, col_stride,
-                              row_in_stride, col_in_stride, padding_type)
-                          .reshape(pre_contract_dims),
-                      contract_dims, output_kernel)
-            .reshape(post_contract_dims),
-        input
-            .extract_image_patches(kernelRows, kernelCols, row_stride,
-                                   col_stride, row_in_stride, col_in_stride,
-                                   padding_type)
-            .reshape(pre_contract_dims)
-            .contract(kernel.reshape(kernel_dims), contract_dims, output_kernel)
-            .reshape(post_contract_dims));
-  }
+
+  auto kernel_reshaped = kernel.reshape(kernel_dims);
+  auto input_patches_reshaped = input.extract_image_patches(
+      kernelRows, kernelCols, row_stride, col_stride,
+      row_in_stride, col_in_stride, padding_type)
+    .reshape(pre_contract_dims);
+
+  /* return choose( */
+  /*     Cond<internal::traits<Input>::Layout == ColMajor>(), */
+  /*     kernel_reshaped */
+  /*         .contract(input_patches_reshaped, contract_dims, output_kernel) */
+  /*         .reshape(post_contract_dims), */
+  /*     input_patches_reshaped */
+  /*         .contract(kernel_reshaped, contract_dims, output_kernel) */
+  /*         .reshape(post_contract_dims)); */
+  return choose(
+      Cond<internal::traits<Input>::Layout == ColMajor>(),
+      kernel.reshape(kernel_dims)
+          .contract(input
+                        .extract_image_patches(
+                            kernelRows, kernelCols, row_stride, col_stride,
+                            row_in_stride, col_in_stride, padding_type)
+                        .reshape(pre_contract_dims),
+                    contract_dims, output_kernel)
+          .reshape(post_contract_dims),
+      input
+          .extract_image_patches(kernelRows, kernelCols, row_stride,
+                                 col_stride, row_in_stride, col_in_stride,
+                                 padding_type)
+          .reshape(pre_contract_dims)
+          .contract(kernel.reshape(kernel_dims), contract_dims, output_kernel)
+          .reshape(post_contract_dims));
 }
 
 }  // end namespace Eigen
