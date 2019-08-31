@@ -1613,7 +1613,6 @@ EIGEN_DEVICE_FUNC
       internal::traits<Input>::Layout == internal::traits<Kernel>::Layout,
       YOU_MADE_A_PROGRAMMING_MISTAKE)
   const bool isColMajor = (internal::traits<Input>::Layout == ColMajor);
-  std::cout << "isColMajor: " << isColMajor << "\n";
 
   const int NumDims = internal::traits<Input>::NumDimensions;
 
