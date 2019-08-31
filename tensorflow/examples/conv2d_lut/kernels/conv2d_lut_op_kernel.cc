@@ -343,6 +343,38 @@ class Conv2DLUTOp : public OpKernel {
               params_.padding,
               output, 
               params_.data_format);
+
+    /* auto in = input.tensor<T, 4>(); */
+    /* auto kern = filter.tensor<T, 4>(); */
+    /* auto lookupTable = lut.tensor<U, 2>(); */
+
+    /* Eigen::array<int, 2> pre_contract_dims ( */
+    /*     dimensions.patch_depth * dimensions.filter_cols * dimensions.filter_rows, */ 
+    /*     dimensions.out_rows * dimensions.out_cols * dimensions.batch); */
+
+    /* Eigen::array<int, 2> kernel_dims ( */
+    /*     dimensions.out_depth, */
+    /*     dimensions.patch_depth * dimensions.filter_cols * dimensions.filter_rows); */
+
+    /* auto input_patches_reshaped = in.extract_image_patches( */
+    /*     dimensions.filter_cols, dimensions.filter_rows, dimensions.stride_cols, dimensions.stride_rows, */
+    /*     dimensions.dilation_cols, dimensions.dilation_rows, BrainPadding2EigenPadding(params_.padding)) */
+    /*   .reshape(pre_contract_dims); */
+
+    /* auto kernel_reshaped = kern.reshape(kernel_dims); */
+
+    /* auto n_patches = dimensions.out_height * dimensions.out_width; */
+    /* auto n_filters = dimensions.out_depth; */
+    /* for (int i {0}; i < n_filters; ++i) */
+    /* { */
+    /*   for (int j {0}; j < n_patches; ++j) */
+    /*     { */
+    /*         lookupTable */
+
+    /*     } */
+    /* } */
+
+
     /* auto out = output->tensor<U, 4>(); */
     /* out.setZero(); */
 

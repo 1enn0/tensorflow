@@ -28,16 +28,19 @@ using namespace tensorflow;
 template <typename Device, typename T, typename U,
           typename OutputKernel = const Eigen::NoOpOutputKernel>
 struct SpatialConvolutionLUT {
-  void operator()(const Device& d, typename TTypes<U, 4>::Tensor output,
-                  typename TTypes<T, 4>::ConstTensor input,
-                  typename TTypes<T, 4>::ConstTensor filter, 
-                  typename TTypes<U, 2>::ConstTensor lut,
+  using TConst4 = typename TTypes<T, 4>::ConstTensor;
+  using UConst2 = typename TTypes<U, 2>::ConstTensor;
+  using UTensor4 = typename TTypes<U, 4>::Tensor;
+  void operator()(const Device& d, UTensor4 output,
+                  TConst4 input,
+                  TConst4 filter, 
+                  UConst2 lut,
                   int row_stride, int col_stride, int row_dilation, int col_dilation,
                   const Eigen::PaddingType& padding,
                   const OutputKernel& output_kernel = OutputKernel()) {
     // Need to swap row/col when calling Eigen. Eigen expects the tensor
     // in NWHC format, but the tensor given is in NHWC.
-    output.device(d) = Eigen::SpatialConvolutionLUT(
+    output.device(d) = Eigen::SpatialConvolutionLUT<TConst4, TConst4, UConst2, UTensor4, OutputKernel>(
         input, filter, lut, col_stride, row_stride,
         padding, col_dilation, row_dilation, output_kernel);
   }

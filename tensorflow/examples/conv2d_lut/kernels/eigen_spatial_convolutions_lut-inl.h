@@ -1551,70 +1551,42 @@ struct gemm_pack_rhs<
  * kernel is called by Eigen when it "finalizes" the block of an output tensor.
  *
  */
+template<typename T, int n_dims = 1>
+using MyTensor = Tensor<T, n_dims, RowMajor, DenseIndex>;
+template<typename T, int n_dims = 1>
+using MyTensorMap = TensorMap<MyTensor<T, n_dims>, Aligned>;
+
 template <typename Input, typename Kernel, typename LookupTable,
-          typename OutputKernel = const NoOpOutputKernel>
+          typename Output, typename OutputKernel = const NoOpOutputKernel>
+EIGEN_DEVICE_FUNC
+    EIGEN_ALWAYS_INLINE const MyTensorMap<typename internal::traits<Output>::Scalar, 4>
 /* EIGEN_DEVICE_FUNC */
 /*     EIGEN_ALWAYS_INLINE static const typename internal::conditional< */
 /*         internal::traits<Input>::Layout == ColMajor, */
-/*         TensorCwiseNullaryOp< */
-/*             internal::scalar_constant_op<typename internal::traits<Input>::Scalar>, */
-/*             TensorReshapingOp< */
-/*                 const DSizes<typename internal::traits<Input>::Index, */
-/*                              internal::traits<Input>::NumDimensions>, */
-/*                 const TensorContractionOp< */
-/*                     const array<IndexPair<typename internal::traits<Input>::Index>, */
-/*                                 1>, */
-/*                     const TensorReshapingOp< */
-/*                         const DSizes<typename internal::traits<Input>::Index, 2>, */
-/*                         const Kernel>, */
-/*                     const TensorReshapingOp< */
-/*                         const DSizes<typename internal::traits<Input>::Index, 2>, */
-/*                         const TensorImagePatchOp<Dynamic, Dynamic, const Input> >, */
-/*                     const OutputKernel> > >, */
-/*         TensorCwiseNullaryOp< */
-/*             internal::scalar_constant_op<typename internal::traits<Input>::Scalar>, */
-/*             TensorReshapingOp< */
-/*                 const DSizes<typename internal::traits<Input>::Index, */
-/*                              internal::traits<Input>::NumDimensions>, */
-/*                 const TensorContractionOp< */
-/*                     const array<IndexPair<typename internal::traits<Input>::Index>, */
-/*                                 1>, */
-/*                     const TensorReshapingOp< */
-/*                         const DSizes<typename internal::traits<Input>::Index, 2>, */
-/*                         const TensorImagePatchOp<Dynamic, Dynamic, const Input> >, */
-/*                     const TensorReshapingOp< */
-/*                         const DSizes<typename internal::traits<Input>::Index, 2>, */
-/*                         const Kernel>, */
-/*                     const OutputKernel> > > >::type */
-EIGEN_DEVICE_FUNC
-    EIGEN_ALWAYS_INLINE static const typename internal::conditional<
-        internal::traits<Input>::Layout == ColMajor,
-        TensorReshapingOp<
-            const DSizes<typename internal::traits<Input>::Index,
-                         internal::traits<Input>::NumDimensions>,
-            const TensorContractionOp<
-                const array<IndexPair<typename internal::traits<Input>::Index>,
-                            1>,
-                const TensorReshapingOp<
-                    const DSizes<typename internal::traits<Input>::Index, 2>,
-                    const Kernel>,
-                const TensorReshapingOp<
-                    const DSizes<typename internal::traits<Input>::Index, 2>,
-                    const TensorImagePatchOp<Dynamic, Dynamic, const Input> >,
-                const OutputKernel> >,
-        TensorReshapingOp<
-            const DSizes<typename internal::traits<Input>::Index,
-                         internal::traits<Input>::NumDimensions>,
-            const TensorContractionOp<
-                const array<IndexPair<typename internal::traits<Input>::Index>,
-                            1>,
-                const TensorReshapingOp<
-                    const DSizes<typename internal::traits<Input>::Index, 2>,
-                    const TensorImagePatchOp<Dynamic, Dynamic, const Input> >,
-                const TensorReshapingOp<
-                    const DSizes<typename internal::traits<Input>::Index, 2>,
-                    const Kernel>,
-                const OutputKernel> > >::type
+/*         TensorReshapingOp< */
+/*             const DSizes<typename internal::traits<Input>::Index, */
+/*                          internal::traits<Input>::NumDimensions>, */
+/*             const TensorContractionOp< */
+/*                 const array<IndexPair<typename internal::traits<Input>::Index>, 1>, */
+/*                 const TensorReshapingOp< */
+/*                     const DSizes<typename internal::traits<Input>::Index, 2>, */
+/*                     const Kernel>, */
+/*                 const TensorReshapingOp< */
+/*                     const DSizes<typename internal::traits<Input>::Index, 2>, */
+/*                     const TensorImagePatchOp<Dynamic, Dynamic, const Input> >, */
+/*                 const OutputKernel> >, */
+/*         TensorReshapingOp< */
+/*             const DSizes<typename internal::traits<Input>::Index, */
+/*                          internal::traits<Input>::NumDimensions>, */
+/*             const TensorContractionOp< */
+/*                 const array<IndexPair<typename internal::traits<Input>::Index>, 1>, */
+/*                 const TensorReshapingOp< */
+/*                     const DSizes<typename internal::traits<Input>::Index, 2>, */
+/*                     const TensorImagePatchOp<Dynamic, Dynamic, const Input> >, */
+/*                 const TensorReshapingOp< */
+/*                     const DSizes<typename internal::traits<Input>::Index, 2>, */
+/*                     const Kernel>, */
+/*                 const OutputKernel> > >::type */
     SpatialConvolutionLUT(const Input& input, const Kernel& kernel, const LookupTable& lookupTable,
                        const Index row_stride = 1, const Index col_stride = 1,
                        const PaddingType padding_type = PADDING_SAME,
@@ -1640,6 +1612,7 @@ EIGEN_DEVICE_FUNC
       internal::traits<Input>::Layout == internal::traits<Kernel>::Layout,
       YOU_MADE_A_PROGRAMMING_MISTAKE)
   const bool isColMajor = (internal::traits<Input>::Layout == ColMajor);
+  std::cout << "isColMajor: " << isColMajor << "\n";
 
   const int NumDims = internal::traits<Input>::NumDimensions;
 
@@ -1742,13 +1715,64 @@ EIGEN_DEVICE_FUNC
     kernel_dims[1] = kernelFilters;
   }
 
-  auto kernel_reshaped = kernel.reshape(kernel_dims);
-  auto input_patches_reshaped = input.extract_image_patches(
+  int n_patches = isColMajor ? pre_contract_dims[1] : pre_contract_dims[0];
+  int patch_size = isColMajor ? pre_contract_dims[0] : pre_contract_dims[1];
+
+  using LutValueType = typename internal::traits<Output>::Scalar;
+  /* using IndexType = typename internal::traits<Input>::Scalar; */
+  MyTensor<int, 2> kernel_reshaped = kernel.reshape(kernel_dims);
+  MyTensor<int, 2> input_patches_reshaped = input.extract_image_patches(
       kernelRows, kernelCols, row_stride, col_stride,
       row_in_stride, col_in_stride, padding_type)
     .reshape(pre_contract_dims);
 
-  /* return choose( */
+  /* DSizes<TensorIndex, 2> kernel_bcast; */
+  /* DSizes<TensorIndex, 2> input_bcast; */
+  /* if (isColMajor) { */
+  /*   kernel_bcast[0] = 1; */
+  /*   kernel_bcast[1] = n_patches; */
+  /*   input_bcast[0] = 1; */
+  /*   input_bcast[1] = kernelFilters; */
+  /* } else { */
+  /*   kernel_bcast[0] = n_patches; */
+  /*   kernel_bcast[1] = 1; */
+  /*   input_bcast[0] = kernelFilters; */
+  /*   input_bcast[1] = 1; */
+  /* } */
+  /* auto kernel_bcasted = kernel_reshaped.broadcast(kernel_bcast); */
+  /* auto input_bcasted = input_patches_reshaped.broadcast(input_bcast); */
+
+  /* DSizes<TensorIndex, 2> flat_dims (1, 1); */
+  /* if (isColMajor) */
+  /* { */
+  /*   flat_dims[1] = kernelFilters * patch_size * n_patches; */
+  /* } else { */
+  /*   flat_dims[0] = kernelFilters * patch_size * n_patches; */
+  /* } */
+
+
+  MyTensor<LutValueType, 4> result (post_contract_dims);
+  MyTensorMap<LutValueType, 2> tmpRes (result.data(), kernelFilters, n_patches);
+
+  auto values = lookupTable({3, 1});
+  const bool lutColMajor = (internal::traits<LookupTable>::Layout == ColMajor);
+  std::cout << values << " isColMajor: " <<  lutColMajor << "\n";
+
+  for (int i {0}; i < kernelFilters; ++i)
+  {
+    for (int j {0}; j < n_patches; ++j)
+    {
+      LutValueType tmp {0};
+      for (int k {0}; k < patch_size; ++k)
+      {
+        tmp += lookupTable(input_patches_reshaped(j, k), kernel_reshaped(i, k));
+      }
+      tmpRes(i, j) = tmp;
+    }
+  }
+  return result;
+
+  /* result = choose( */
   /*     Cond<internal::traits<Input>::Layout == ColMajor>(), */
   /*     kernel_reshaped */
   /*         .contract(input_patches_reshaped, contract_dims, output_kernel) */
@@ -1756,23 +1780,6 @@ EIGEN_DEVICE_FUNC
   /*     input_patches_reshaped */
   /*         .contract(kernel_reshaped, contract_dims, output_kernel) */
   /*         .reshape(post_contract_dims)); */
-  return choose(
-      Cond<internal::traits<Input>::Layout == ColMajor>(),
-      kernel.reshape(kernel_dims)
-          .contract(input
-                        .extract_image_patches(
-                            kernelRows, kernelCols, row_stride, col_stride,
-                            row_in_stride, col_in_stride, padding_type)
-                        .reshape(pre_contract_dims),
-                    contract_dims, output_kernel)
-          .reshape(post_contract_dims),
-      input
-          .extract_image_patches(kernelRows, kernelCols, row_stride,
-                                 col_stride, row_in_stride, col_in_stride,
-                                 padding_type)
-          .reshape(pre_contract_dims)
-          .contract(kernel.reshape(kernel_dims), contract_dims, output_kernel)
-          .reshape(post_contract_dims));
 }
 
 }  // end namespace Eigen
