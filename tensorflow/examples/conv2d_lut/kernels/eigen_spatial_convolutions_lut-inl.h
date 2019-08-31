@@ -1641,8 +1641,8 @@ EIGEN_DEVICE_FUNC
   const TensorIndex InputCols =
       isColMajor ? in.dimension(2) : in.dimension(NumDims - 3);
 
-  TensorIndex out_height;
-  TensorIndex out_width;
+  TensorIndex out_height {0};
+  TensorIndex out_width {0};
   switch (padding_type) {
     case PADDING_VALID: {
       out_height = numext::ceil((InputRows - kernelRowsEff + 1.f) /
@@ -1657,9 +1657,6 @@ EIGEN_DEVICE_FUNC
       break;
     }
     default: {
-      // Initialize unused variables to avoid a compiler warning
-      out_height = 0;
-      out_width = 0;
       eigen_assert(false && "unexpected padding");
     }
   }
@@ -1718,10 +1715,13 @@ EIGEN_DEVICE_FUNC
   int n_patches = isColMajor ? pre_contract_dims[1] : pre_contract_dims[0];
   int patch_size = isColMajor ? pre_contract_dims[0] : pre_contract_dims[1];
 
+  const int padValueRowIdx = 
+    isColMajor ? (lookupTable.dimensions()[1] - 1) / 2 : (lookupTable.dimensions()[0] - 1) / 2;
+
   MyTensor<LutIndex, 2> kernel_reshaped = kernel.reshape(kernel_dims);
   MyTensor<LutIndex, 2> input_patches_reshaped = input.extract_image_patches(
       kernelRows, kernelCols, row_stride, col_stride,
-      row_in_stride, col_in_stride, padding_type)
+      row_in_stride, col_in_stride, padding_type, padValueRowIdx)
     .reshape(pre_contract_dims);
 
   MyTensor<LutValue, 4> result (post_contract_dims);

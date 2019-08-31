@@ -38,8 +38,13 @@ class Conv2DLUTTest(unittest.TestCase):
         self.activations = np.random.randint(0, 100, size=self.n_activations)
         self.weights = np.random.randint(5, 15, size=self.n_weights)
 
-        # lut shape [n_activations, n_weights]
-        self.lut = np.array(np.expand_dims(self.activations, 1) * np.expand_dims(self.weights, 0), dtype=np.int32)
+        # lut shape [n_activations + 1, n_weights + 1]
+        self.lut = np.zeros([self.n_activations + 1, self.n_weights + 1], dtype=np.int32)
+        self.lut[:-1, :-1] = np.array(np.expand_dims(self.activations, 1) * np.expand_dims(self.weights, 0))
+        self.lut[-1, :-1] = self.weights
+        self.lut[:-1, -1] = self.activations
+
+        self.padding_value = self.activations[int(self.n_activations / 2)]
 
     def create_inputs(self, input_shape, kernel_shape):
         """Create input arrays.
@@ -61,7 +66,7 @@ class Conv2DLUTTest(unittest.TestCase):
 
         return inputs, kernels
 
-    def compute_expected(self, input_idcs, kernel_idcs, *args):
+    def compute_expected(self, input_idcs, kernel_idcs, strides, padding):
         """Compute expected output with regular conv2d function.
 
         For this, we look up the values corresponding
@@ -71,7 +76,19 @@ class Conv2DLUTTest(unittest.TestCase):
         """
         input_values = self.activations[input_idcs].astype(np.float32)
         kernel_values = self.weights[kernel_idcs].astype(np.float32)
-        expected = tf.nn.conv2d(input_values, kernel_values, *args)
+
+        if padding == 'SAME':
+            # we have to manually pad the inputs and use 'VALID'
+            # padding here, since we do not want to pad with zeroes
+            # we use padding length [top, bottom, left, right] = 1 since
+            # we only use [3, 3] kernels here in these tests
+            input_shape_padded = [input_idcs.shape[0], input_idcs.shape[1] + 2, input_idcs.shape[2] + 2, input_idcs.shape[3]]
+            input_values_padded = np.full(input_shape_padded, self.padding_value, dtype=np.float32)
+            input_values_padded[:, 1:-1, 1:-1, :] = input_values
+            input_values = input_values_padded
+            padding = 'VALID'
+
+        expected = tf.nn.conv2d(input_values, kernel_values, strides, padding)
         return expected.numpy().astype(np.int32)
 
     def test_batch1_inch1_kch1_pad_valid_nostride(self):
