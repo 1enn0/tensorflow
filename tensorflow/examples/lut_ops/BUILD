@@ -1,5 +1,5 @@
 # Description:
-# Custom OP library for conv2d using lookup table
+# Custom OP library for conv2d/matmul using lookup table
 
 package(
     default_visibility = ["//tensorflow:internal"],
@@ -13,28 +13,33 @@ load("//tensorflow:tensorflow.bzl", "tf_exec_compatible_with")
 exports_files(["LICENSE"])
 
 tf_custom_op_library(
-    name = "conv2d_lut_op_kernel.so",
+    name = "lut_ops_op_lib.so",
     srcs = [
-	    "ops/conv2d_lut_op.cc",
-	    "kernels/conv2d_lut_op_kernel.h",
-	    "kernels/conv2d_lut_op_kernel.cc",
+      "ops/conv2d_lut_op.cc",
+      "ops/matmul_lut_op.cc",
+      "kernels/conv2d_lut_op_kernel.h",
+      "kernels/conv2d_lut_op_kernel.cc",
       "kernels/conv2d_lut.h",
       "kernels/eigen_spatial_convolutions_lut-inl.h",
+      "kernels/matmul_lut_op_kernel.h",
+      "kernels/matmul_lut_op_kernel.cc",
     ],
     deps = [
-	    "//tensorflow/core/kernels:eigen_helpers",
+      "//tensorflow/core/kernels:eigen_helpers",
       "//tensorflow/core/kernels:ops_util",
+      "//tensorflow/core/kernels:fill_functor",
       "//tensorflow/core:core_cpu",
       "//tensorflow/core:framework",
       "//tensorflow/core:lib",
       "//tensorflow/core:lib_internal",
     ],
+    visibility = ["//visibility:public"],
 )
 
 py_library(
-    name = "conv2d_lut_op",
-    srcs = ["conv2d_lut_op.py"],
-    data = [":conv2d_lut_op_kernel.so"],
+    name = "lut_ops",
+    srcs = ["lut_ops.py"],
+    data = [":lut_ops_op_lib.so"],
     srcs_version = "PY2AND3",
     deps = ["//tensorflow:tensorflow_py"],
 )

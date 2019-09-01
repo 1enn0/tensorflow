@@ -18,8 +18,8 @@ limitations under the License.
 #define USE_EIGEN_TENSOR
 #define EIGEN_USE_THREADS
 
-#include "tensorflow/examples/conv2d_lut/kernels/conv2d_lut_op_kernel.h"
-#include "tensorflow/examples/conv2d_lut/kernels/conv2d_lut.h"
+#include "tensorflow/examples/lut_ops/kernels/conv2d_lut_op_kernel.h"
+#include "tensorflow/examples/lut_ops/kernels/conv2d_lut.h"
 
 #include <string.h>
 

@@ -13,12 +13,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#ifndef CONV2D_LUT_KERNELS_CONV_2D_H_
-#define CONV2D_LUT_KERNELS_CONV_2D_H_
+#ifndef LUT_OPS_KERNELS_CONV_2D_H_
+#define LUT_OPS_KERNELS_CONV_2D_H_
 
 #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #include "tensorflow/core/framework/tensor_types.h"
-#include "tensorflow/examples/conv2d_lut/kernels/eigen_spatial_convolutions_lut-inl.h"
+#include "tensorflow/examples/lut_ops/kernels/eigen_spatial_convolutions_lut-inl.h"
 #include "tensorflow/core/util/tensor_format.h"
 
 namespace functor {
@@ -67,4 +67,4 @@ struct MatMulConvFunctor {
 
 }  // namespace functor
 
-#endif  // CONV2D_LUT_KERNELS_CONV_2D_H_
+#endif  // LUT_OPS_KERNELS_CONV_2D_H_

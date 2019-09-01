@@ -21,7 +21,8 @@ import os.path
 
 import tensorflow as tf
 
-_conv2d_lut_module = tf.load_op_library(
+_lut_ops_module = tf.load_op_library(
     os.path.join(tf.resource_loader.get_data_files_path(),
-                 'conv2d_lut_op_kernel.so'))
-conv2d_lut = _conv2d_lut_module.conv2d_lut
+                 'lut_ops_op_lib.so'))
+conv2d_lut = _lut_ops_module.conv2d_lut
+matmul_lut = _lut_ops_module.matmul_lut

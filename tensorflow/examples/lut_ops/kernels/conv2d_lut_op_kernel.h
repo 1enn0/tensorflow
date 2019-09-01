@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#ifndef CONV2D_LUT_KERNELS_CONV2D_LUT_OP_KERNEL_H_
-#define CONV2D_LUT_KERNELS_CONV2D_LUT_OP_KERNEL_H_
+#ifndef LUT_OPS_KERNELS_CONV2D_LUT_OP_KERNEL_H_
+#define LUT_OPS_KERNELS_CONV2D_LUT_OP_KERNEL_H_
 
 #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #include "tensorflow/core/framework/resource_mgr.h"
@@ -81,4 +81,4 @@ Status ComputeConv2DLUTDimension(const Conv2DLUTParameters& params,
                               const Tensor& input, const Tensor& filter,
                               Conv2DLUTDimensions* dimensions);
 
-#endif  // CONV2D_LUT_KERNELS_CONV2D_LUT_OP_KERNEL_H_
+#endif  // LUT_OPS_KERNELS_CONV2D_LUT_OP_KERNEL_H_

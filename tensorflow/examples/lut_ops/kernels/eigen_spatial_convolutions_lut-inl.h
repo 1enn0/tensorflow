@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#ifndef TENSORFLOW_EXAMPLES_CONV2DLUT_KERNELS_EIGEN_SPATIAL_CONVOLUTIONS_LUT_INL_H_
-#define TENSORFLOW_EXAMPLES_CONV2DLUT_KERNELS_EIGEN_SPATIAL_CONVOLUTIONS_LUT_INL_H_
+#ifndef LUT_OPS_KERNELS_EIGEN_SPATIAL_CONVOLUTIONS_LUT_INL_H_
+#define LUT_OPS_KERNELS_EIGEN_SPATIAL_CONVOLUTIONS_LUT_INL_H_
 
 // Note this header is used in both TF and TFLite.
 namespace Eigen {
@@ -1745,4 +1745,4 @@ EIGEN_DEVICE_FUNC
 
 }  // end namespace Eigen
 
-#endif  // TENSORFLOW_EXAMPLES_CONV2DLUT_KERNELS_EIGEN_SPATIAL_CONVOLUTIONS_LUT_INL_H_
+#endif  // LUT_OPS_KERNELS_EIGEN_SPATIAL_CONVOLUTIONS_LUT_INL_H_

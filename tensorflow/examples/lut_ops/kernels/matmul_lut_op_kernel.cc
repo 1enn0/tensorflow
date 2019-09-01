@@ -1,0 +1,164 @@
+/* Copyright 2015 The TensorFlow Authors. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+// See docs in ../ops/math_ops.cc.
+
+#define EIGEN_USE_THREADS
+
+#include "tensorflow/examples/lut_ops/kernels/matmul_lut_op_kernel.h"
+
+#include "tensorflow/core/framework/op.h"
+#include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/core/framework/register_types.h"
+#include "tensorflow/core/kernels/fill_functor.h"
+#include "tensorflow/core/util/matmul_autotune.h"
+
+namespace tensorflow {
+
+typedef Eigen::ThreadPoolDevice CPUDevice;
+
+template <typename Device, typename T, typename U>
+struct LaunchMatMulLUT {
+  void operator()(OpKernelContext* ctx, 
+                     const Tensor& a, const Tensor& b, const Tensor& lut,
+                     const Eigen::array<Eigen::IndexPair<Eigen::DenseIndex>, 1>& dim_pair,
+                     Tensor* out) 
+  {
+      functor::MatMulLUTFunctor<Device, T, U>()(ctx->eigen_device<Device>(),
+                                                out->matrix<U>(), 
+                                                a.matrix<T>(), b.matrix<T>(), 
+                                                lut.matrix<U>(), 
+                                                dim_pair);
+  }
+};
+
+namespace {
+// Converts a TensorFlow Tensor to an Eigen Matrix.
+template <typename T>
+Eigen::Map<
+    const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>
+ToEigenMatrix(const Tensor& tensor) {
+  auto matrix = tensor.matrix<T>();
+  return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>::Map(
+      matrix.data(), matrix.dimension(0), matrix.dimension(1));
+}
+
+// Converts a TensorFlow Tensor to an Eigen Vector.
+template <typename T>
+Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, 1>> ToEigenVector(Tensor* tensor) {
+  auto v = tensor->flat<T>();
+  return Eigen::Matrix<T, Eigen::Dynamic, 1>::Map(v.data(), v.dimension(0));
+}
+template <typename T>
+Eigen::Map<const Eigen::Matrix<T, Eigen::Dynamic, 1>> ToEigenVector(
+    const Tensor& tensor) {
+  auto v = tensor.flat<T>();
+  return Eigen::Matrix<T, Eigen::Dynamic, 1>::Map(v.data(), v.dimension(0));
+}
+}  // namespace
+
+template <typename Device, typename T, typename U>
+class MatMulLUTOp : public OpKernel {
+ public:
+  explicit MatMulLUTOp(OpKernelConstruction* ctx)
+      : OpKernel(ctx) {
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("transpose_a", &transpose_a_));
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("transpose_b", &transpose_b_));
+  }
+
+  void Compute(OpKernelContext* ctx) override {
+    const Tensor& a = ctx->input(0);
+    const Tensor& b = ctx->input(1);
+    const Tensor& lut = ctx->input(2);
+
+    // Check that the dimensions of the two matrices are valid.
+    OP_REQUIRES(
+        ctx, TensorShapeUtils::IsMatrix(a.shape()),
+        errors::InvalidArgument("In[0] is not a matrix. Instead it has shape ",
+                                a.shape().DebugString()));
+    OP_REQUIRES(
+        ctx, TensorShapeUtils::IsMatrix(b.shape()),
+        errors::InvalidArgument("In[1] is not a matrix. Instead it has shape ",
+                                b.shape().DebugString()));
+    Eigen::array<Eigen::IndexPair<Eigen::DenseIndex>, 1> dim_pair;
+    dim_pair[0].first = transpose_a_ ? 0 : 1;
+    dim_pair[0].second = transpose_b_ ? 1 : 0;
+
+    OP_REQUIRES(
+        ctx, a.dim_size(dim_pair[0].first) == b.dim_size(dim_pair[0].second),
+        errors::InvalidArgument(
+            "Matrix size-incompatible: In[0]: ", a.shape().DebugString(),
+            ", In[1]: ", b.shape().DebugString()));
+    int a_dim_remaining = 1 - dim_pair[0].first;
+    int b_dim_remaining = 1 - dim_pair[0].second;
+    TensorShape out_shape(
+        {a.dim_size(a_dim_remaining), b.dim_size(b_dim_remaining)});
+    Tensor* out = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->allocate_output(0, out_shape, &out));
+
+    if (out->NumElements() == 0) {
+      // If a has shape [0, x] or b has shape [x, 0], the output shape
+      // is a 0-element matrix, so there is nothing to do.
+      return;
+    }
+
+    if (a.NumElements() == 0 && b.NumElements() == 0) {
+      // If a has shape [x, 0] and b has shape [0, y], the
+      // output shape is [x, y] where x and y are non-zero, so we fill
+      // the output with zeros.
+      functor::SetZeroFunctor<Device, U> f;
+      f(ctx->eigen_device<Device>(), out->flat<U>());
+      return;
+    }
+
+    launcher_(ctx, a, b, lut, dim_pair, out);
+  }
+
+ private:
+  LaunchMatMulLUT<Device, T, U> launcher_;
+  bool transpose_a_;
+  bool transpose_b_;
+};
+
+namespace functor {
+
+// Partial specialization MatMulLUTFunctor<Device=CPUDevice, T>.
+template <typename T, typename U>
+struct MatMulLUTFunctor<CPUDevice, T, U> {
+  void operator()(
+      const CPUDevice& d, typename MatMulLUTTypes<U>::out_type out,
+      typename MatMulLUTTypes<T>::in_type in0,
+      typename MatMulLUTTypes<T>::in_type in1,
+      typename MatMulLUTTypes<U>::in_type lut,
+      const Eigen::array<Eigen::IndexPair<Eigen::DenseIndex>, 1>& dim_pair) {
+    MatMulLUT<CPUDevice>(d, out, in0, in1, lut, dim_pair);
+  }
+};
+
+
+}  // end namespace functor
+
+#define REGISTER_CPU(T, U)                  \
+  REGISTER_KERNEL_BUILDER(                  \
+      Name("MatMulLUT")                     \
+      .Device(DEVICE_CPU)                   \
+      .TypeConstraint<T>("InputIdxType")    \
+      .TypeConstraint<U>("LutValueType"),   \
+      MatMulLUTOp<CPUDevice, T, U>);
+
+REGISTER_CPU(int32, int32);
+/* REGISTER_CPU(int32, float); */
+
+}  // namespace tensorflow
