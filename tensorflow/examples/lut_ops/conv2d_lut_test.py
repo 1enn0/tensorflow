@@ -368,8 +368,8 @@ class Conv2DLUTTest(unittest.TestCase):
 if __name__ == '__main__':
     tf.compat.v1.enable_eager_execution()
     # load custom op lib
-    _conv2d_lut_module = tf.load_op_library(
-            '/home/lhannink/code/git/tensorflow/bazel-bin/tensorflow/examples/conv2d_lut/conv2d_lut_op_kernel.so')
-    conv2dlut = _conv2d_lut_module.conv2dlut
+    _lut_ops_module = tf.load_op_library(
+            '/home/lhannink/code/git/tensorflow/bazel-bin/tensorflow/examples/lut_ops/lut_ops_op_lib.so')
+    conv2dlut = _lut_ops_module.conv2d_lut
 
     unittest.main()

@@ -21,7 +21,7 @@ limitations under the License.
 
 namespace tf = tensorflow;
 
-REGISTER_OP("Conv2DLUT")
+REGISTER_OP("Conv2dLut")
     .Input("input: InputIdxType")
     .Input("filter: InputIdxType")
     .Input("lookup_table: LUTValueType")

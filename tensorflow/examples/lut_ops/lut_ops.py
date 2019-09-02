@@ -25,4 +25,4 @@ _lut_ops_module = tf.load_op_library(
     os.path.join(tf.resource_loader.get_data_files_path(),
                  'lut_ops_op_lib.so'))
 conv2d_lut = _lut_ops_module.conv2d_lut
-matmul_lut = _lut_ops_module.matmul_lut
+matmul_lut = _lut_ops_module.mat_mul_lut

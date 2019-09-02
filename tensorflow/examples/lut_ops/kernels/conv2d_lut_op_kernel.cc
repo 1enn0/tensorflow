@@ -333,7 +333,7 @@ class Conv2DLUTOp : public OpKernel {
 
 #define REGISTER_CONV2DLUT_CPU(T, U)      \
   REGISTER_KERNEL_BUILDER(                \
-      Name("Conv2DLUT")                   \
+      Name("Conv2dLut")                   \
       .Device(DEVICE_CPU)                 \
       .TypeConstraint<T>("InputIdxType")  \
       .TypeConstraint<U>("LUTValueType"), \
