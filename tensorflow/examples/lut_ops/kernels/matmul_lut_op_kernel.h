@@ -13,51 +13,50 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#ifndef LUT_OPS_KERNELS_MATMUL_LUT_OP_KERNEL_H_
-#define LUT_OPS_KERNELS_MATMUL_LUT_OP_KERNEL_H_
+#pragma once
 
 #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #include "tensorflow/core/framework/tensor.h"
 #include "tensorflow/core/framework/tensor_types.h"
-#include "tensorflow/core/lib/hash/hash.h"
 
-#if defined(TENSORFLOW_USE_CUSTOM_CONTRACTION_KERNEL)
-#include "tensorflow/core/kernels/eigen_contraction_kernel.h"
-#endif
+#include "tensorflow/examples/lut_ops/kernels/eigen_matmul_lut-inl.h"
 
-namespace tensorflow {
+namespace lut_ops {
 namespace functor {
+
+using namespace tensorflow;
 
 // Helpers to define tensor<T> needed by MatMulLUT op.
 template <typename T>
-struct MatMulLUTTypes {
-  typedef Eigen::TensorMap<Eigen::Tensor<T, 2, Eigen::RowMajor>, Eigen::Aligned>
-      out_type;
+struct MTypes {
+
+  typedef Eigen::TensorMap<Eigen::Tensor<T, 2, Eigen::RowMajor>, 
+          Eigen::Aligned>
+            Matrix;
+
   typedef Eigen::TensorMap<Eigen::Tensor<const T, 2, Eigen::RowMajor>,
-                           Eigen::Aligned>
-      in_type;
+          Eigen::Aligned>
+            ConstMatrix;
 };
 
 template <typename Device, typename In0, typename In1, typename Lut, 
           typename Out, typename DimPair>
 void MatMulLUT(const Device& d, Out out, In0 in0, In1 in1, Lut lut,
             const DimPair& dim_pair) {
-  out.device(d) = in0.contract(in1, dim_pair);
+  out.device(d) = Eigen::MatMulLut(in0, in1, lut, dim_pair);
 }
 
 template <typename Device, typename T, typename U>
 struct MatMulLUTFunctor {
   // Computes on device "d": out = in0 * in1, where * is matrix
-  // multiplication.
+  // multiplication using lookup table "lut"
   void operator()(
-      const Device& d, typename MatMulLUTTypes<U>::out_type out,
-      typename MatMulLUTTypes<T>::in_type in0,
-      typename MatMulLUTTypes<T>::in_type in1,
-      typename MatMulLUTTypes<U>::in_type lut,
+      const Device& d, typename MTypes<U>::Matrix out,
+      typename MTypes<T>::ConstMatrix in0,
+      typename MTypes<T>::ConstMatrix in1,
+      typename MTypes<U>::ConstMatrix lut,
       const Eigen::array<Eigen::IndexPair<Eigen::DenseIndex>, 1>& dim_pair);
 };
 
-}  // end namespace functor
-}  // end namespace tensorflow
-
-#endif  // LUT_OPS_KERNELS_MATMUL_LUT_OP_KERNEL_H_
+} // functor
+} // lut_ops

@@ -23,9 +23,10 @@ limitations under the License.
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/framework/register_types.h"
 #include "tensorflow/core/kernels/fill_functor.h"
-#include "tensorflow/core/util/matmul_autotune.h"
 
-namespace tensorflow {
+namespace lut_ops {
+
+using namespace tensorflow;
 
 typedef Eigen::ThreadPoolDevice CPUDevice;
 
@@ -43,31 +44,6 @@ struct LaunchMatMulLUT {
                                                 dim_pair);
   }
 };
-
-namespace {
-// Converts a TensorFlow Tensor to an Eigen Matrix.
-template <typename T>
-Eigen::Map<
-    const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>
-ToEigenMatrix(const Tensor& tensor) {
-  auto matrix = tensor.matrix<T>();
-  return Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>::Map(
-      matrix.data(), matrix.dimension(0), matrix.dimension(1));
-}
-
-// Converts a TensorFlow Tensor to an Eigen Vector.
-template <typename T>
-Eigen::Map<Eigen::Matrix<T, Eigen::Dynamic, 1>> ToEigenVector(Tensor* tensor) {
-  auto v = tensor->flat<T>();
-  return Eigen::Matrix<T, Eigen::Dynamic, 1>::Map(v.data(), v.dimension(0));
-}
-template <typename T>
-Eigen::Map<const Eigen::Matrix<T, Eigen::Dynamic, 1>> ToEigenVector(
-    const Tensor& tensor) {
-  auto v = tensor.flat<T>();
-  return Eigen::Matrix<T, Eigen::Dynamic, 1>::Map(v.data(), v.dimension(0));
-}
-}  // namespace
 
 template <typename Device, typename T, typename U>
 class MatMulLUTOp : public OpKernel {
@@ -118,7 +94,7 @@ class MatMulLUTOp : public OpKernel {
       // If a has shape [x, 0] and b has shape [0, y], the
       // output shape is [x, y] where x and y are non-zero, so we fill
       // the output with zeros.
-      functor::SetZeroFunctor<Device, U> f;
+      tensorflow::functor::SetZeroFunctor<Device, U> f;
       f(ctx->eigen_device<Device>(), out->flat<U>());
       return;
     }
@@ -134,31 +110,30 @@ class MatMulLUTOp : public OpKernel {
 
 namespace functor {
 
-// Partial specialization MatMulLUTFunctor<Device=CPUDevice, T>.
+// Partial specialization MatMulLUTFunctor<Device=CPUDevice, T, U>.
 template <typename T, typename U>
 struct MatMulLUTFunctor<CPUDevice, T, U> {
   void operator()(
-      const CPUDevice& d, typename MatMulLUTTypes<U>::out_type out,
-      typename MatMulLUTTypes<T>::in_type in0,
-      typename MatMulLUTTypes<T>::in_type in1,
-      typename MatMulLUTTypes<U>::in_type lut,
+      const CPUDevice& d, typename MTypes<U>::Matrix out,
+      typename MTypes<T>::ConstMatrix in0,
+      typename MTypes<T>::ConstMatrix in1,
+      typename MTypes<U>::ConstMatrix lut,
       const Eigen::array<Eigen::IndexPair<Eigen::DenseIndex>, 1>& dim_pair) {
     MatMulLUT<CPUDevice>(d, out, in0, in1, lut, dim_pair);
   }
 };
 
+} // functor
 
-}  // end namespace functor
-
-#define REGISTER_CPU(T, U)                  \
+#define REGISTER_MATMULLUT_CPU(T, U)        \
   REGISTER_KERNEL_BUILDER(                  \
-      Name("MatMulLUT")                     \
+      Name("MatMulLut")                   \
       .Device(DEVICE_CPU)                   \
       .TypeConstraint<T>("InputIdxType")    \
-      .TypeConstraint<U>("LutValueType"),   \
+      .TypeConstraint<U>("LUTValueType"),   \
       MatMulLUTOp<CPUDevice, T, U>);
 
-REGISTER_CPU(int32, int32);
-/* REGISTER_CPU(int32, float); */
+REGISTER_MATMULLUT_CPU(int32, int32);
+REGISTER_MATMULLUT_CPU(int32, float);
 
-}  // namespace tensorflow
+} // lut_ops

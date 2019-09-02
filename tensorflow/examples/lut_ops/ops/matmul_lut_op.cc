@@ -20,13 +20,13 @@ limitations under the License.
 
 namespace tf = tensorflow;
 
-REGISTER_OP("MatMulLUT")
+REGISTER_OP("MatMulLut")
     .Input("activation_indices: InputIdxType")
     .Input("weight_indices: InputIdxType")
     .Input("lookup_table: LUTValueType")
     .Output("product: LUTValueType")
-    .Attr("transpose_a: bool = false")
-    .Attr("transpose_b: bool = false")
     .Attr("InputIdxType: {int32}")
     .Attr("LUTValueType: {int32, float}")
+    .Attr("transpose_a: bool = false")
+    .Attr("transpose_b: bool = false")
     .SetShapeFn(tf::shape_inference::MatMulShape);

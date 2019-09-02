@@ -23,6 +23,7 @@ tf_custom_op_library(
       "kernels/eigen_spatial_convolutions_lut-inl.h",
       "kernels/matmul_lut_op_kernel.h",
       "kernels/matmul_lut_op_kernel.cc",
+      "kernels/eigen_matmul_lut-inl.h",
     ],
     deps = [
       "//tensorflow/core/kernels:eigen_helpers",

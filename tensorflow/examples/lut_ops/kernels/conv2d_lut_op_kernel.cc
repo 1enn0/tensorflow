@@ -43,6 +43,8 @@ limitations under the License.
 #include "tensorflow/core/util/padding.h"
 #include "tensorflow/core/util/tensor_format.h"
 
+namespace lut_ops {
+
 using namespace tensorflow;
 
 typedef Eigen::ThreadPoolDevice CPUDevice;
@@ -61,40 +63,17 @@ struct LaunchGeneric {
                                          "supports NHWC tensor format for now.";
     if (filter.dim_size(0) == 1 && filter.dim_size(1) == 1 && row_stride == 1 &&
         col_stride == 1 && (padding == SAME || padding == VALID)) {
-      // For 1x1 kernel, the 2D convolution is reduced to matrix
-      // multiplication.
-      //
-      // TODO(vrv): We should be able to call SpatialConvolutionLUT
-      // and it will produce the same result, but doing so
-      // led to NaNs during training.  Using matmul instead for now.
-      int conv_width = 1;  // Width for the convolution step.
-      for (int i = 0; i < 3; ++i) {
-        conv_width *= output->dim_size(i);
-      }
-
-      Eigen::array<Eigen::IndexPair<Eigen::DenseIndex>, 1> dim_pair;
-      dim_pair[0] = Eigen::IndexPair<Eigen::DenseIndex>(1, 0);
-      functor::MatMulConvFunctor<Device, T>()(
-          ctx->eigen_device<Device>(),
-          output->shaped<T, 2>({conv_width, filter.dim_size(3)}),
-          input.shaped<T, 2>({conv_width, filter.dim_size(2)}),
-          filter.shaped<T, 2>({filter.dim_size(2), filter.dim_size(3)}),
-          dim_pair);
+        ctx->SetStatus(
+            errors::Unimplemented("Generic conv implementation only supports "
+                                  "2D filters for now"));
+        return;
     } else if (filter.dim_size(0) == input.dim_size(1) &&
                filter.dim_size(1) == input.dim_size(2) && row_dilation == 1 &&
                col_dilation == 1 && padding == VALID) {
-      // If the input data and filter have the same height/width,
-      // the 2D convolution is reduced to matrix multiplication.
-      const int k =  // Length of reduction dimension.
-          filter.dim_size(0) * filter.dim_size(1) * filter.dim_size(2);
-
-      Eigen::array<Eigen::IndexPair<Eigen::DenseIndex>, 1> dim_pair;
-      dim_pair[0] = Eigen::IndexPair<Eigen::DenseIndex>(1, 0);
-      functor::MatMulConvFunctor<Device, T>()(
-          ctx->eigen_device<Device>(),
-          output->shaped<T, 2>({input.dim_size(0), filter.dim_size(3)}),
-          input.shaped<T, 2>({input.dim_size(0), k}),
-          filter.shaped<T, 2>({k, filter.dim_size(3)}), dim_pair);
+        ctx->SetStatus(
+            errors::Unimplemented("Generic conv implementation only supports "
+                                  "2D filters for now."));
+        return;
     } else {
         functor::SpatialConvolutionLUT<Device, T, U>()(
             ctx->eigen_device<Device>(), 
@@ -352,7 +331,7 @@ class Conv2DLUTOp : public OpKernel {
   TF_DISALLOW_COPY_AND_ASSIGN(Conv2DLUTOp);
 };
 
-#define REGISTER_CPU(T, U)                \
+#define REGISTER_CONV2DLUT_CPU(T, U)      \
   REGISTER_KERNEL_BUILDER(                \
       Name("Conv2DLUT")                   \
       .Device(DEVICE_CPU)                 \
@@ -360,5 +339,7 @@ class Conv2DLUTOp : public OpKernel {
       .TypeConstraint<U>("LUTValueType"), \
       Conv2DLUTOp<CPUDevice, T, U>);
 
-REGISTER_CPU(int32, int32);
-REGISTER_CPU(int32, float);
+REGISTER_CONV2DLUT_CPU(int32, int32);
+REGISTER_CONV2DLUT_CPU(int32, float);
+
+} // lut_ops
