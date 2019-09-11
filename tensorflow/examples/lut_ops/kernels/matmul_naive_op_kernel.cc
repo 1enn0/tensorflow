@@ -17,7 +17,7 @@ limitations under the License.
 
 #define EIGEN_USE_THREADS
 
-#include "tensorflow/examples/lut_ops/kernels/matmul_lut_op_kernel.h"
+#include "tensorflow/examples/lut_ops/kernels/matmul_naive_op_kernel.h"
 
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
@@ -30,25 +30,24 @@ using namespace tensorflow;
 
 typedef Eigen::ThreadPoolDevice CPUDevice;
 
-template <typename Device, typename T, typename U>
-struct LaunchMatMulLUT {
+template <typename Device, typename T>
+struct LaunchMatMulNaive {
   void operator()(OpKernelContext* ctx, 
-                     const Tensor& a, const Tensor& b, const Tensor& lut,
+                     const Tensor& a, const Tensor& b,
                      const Eigen::array<Eigen::IndexPair<Eigen::DenseIndex>, 1>& dim_pair,
                      Tensor* out) 
   {
-      functor::MatMulLUTFunctor<Device, T, U>()(ctx->eigen_device<Device>(),
-                                                out->matrix<U>(), 
+      functor::MatMulNaiveFunctor<Device, T>()(ctx->eigen_device<Device>(),
+                                                out->matrix<T>(), 
                                                 a.matrix<T>(), b.matrix<T>(), 
-                                                lut.matrix<U>(), 
                                                 dim_pair);
   }
 };
 
-template <typename Device, typename T, typename U>
-class MatMulLUTOp : public OpKernel {
+template <typename Device, typename T>
+class MatMulNaiveOp : public OpKernel {
  public:
-  explicit MatMulLUTOp(OpKernelConstruction* ctx)
+  explicit MatMulNaiveOp(OpKernelConstruction* ctx)
       : OpKernel(ctx) {
     OP_REQUIRES_OK(ctx, ctx->GetAttr("transpose_a", &transpose_a_));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("transpose_b", &transpose_b_));
@@ -57,7 +56,6 @@ class MatMulLUTOp : public OpKernel {
   void Compute(OpKernelContext* ctx) override {
     const Tensor& a = ctx->input(0);
     const Tensor& b = ctx->input(1);
-    const Tensor& lut = ctx->input(2);
 
     // Check that the dimensions of the two matrices are valid.
     OP_REQUIRES(
@@ -94,46 +92,46 @@ class MatMulLUTOp : public OpKernel {
       // If a has shape [x, 0] and b has shape [0, y], the
       // output shape is [x, y] where x and y are non-zero, so we fill
       // the output with zeros.
-      tensorflow::functor::SetZeroFunctor<Device, U> f;
-      f(ctx->eigen_device<Device>(), out->flat<U>());
+      tensorflow::functor::SetZeroFunctor<Device, T> f;
+      f(ctx->eigen_device<Device>(), out->flat<T>());
       return;
     }
 
-    launcher_(ctx, a, b, lut, dim_pair, out);
+    launcher_(ctx, a, b, dim_pair, out);
   }
 
  private:
-  LaunchMatMulLUT<Device, T, U> launcher_;
+  LaunchMatMulNaive<Device, T> launcher_;
   bool transpose_a_;
   bool transpose_b_;
 };
 
 namespace functor {
 
-// Partial specialization MatMulLUTFunctor<Device=CPUDevice, T, U>.
-template <typename T, typename U>
-struct MatMulLUTFunctor<CPUDevice, T, U> {
+// Partial specialization MatMulNaiveFunctor<Device=CPUDevice, T>.
+template <typename T>
+struct MatMulNaiveFunctor<CPUDevice, T> {
   void operator()(
-      const CPUDevice& d, typename MTypes<U>::Matrix out,
+      const CPUDevice& d, typename MTypes<T>::Matrix out,
       typename MTypes<T>::ConstMatrix in0,
       typename MTypes<T>::ConstMatrix in1,
-      typename MTypes<U>::ConstMatrix lut,
       const Eigen::array<Eigen::IndexPair<Eigen::DenseIndex>, 1>& dim_pair) {
-    MatMulLUT<CPUDevice>(d, out, in0, in1, lut, dim_pair);
+    MatMulNaive<CPUDevice>(d, out, in0, in1, dim_pair);
   }
 };
 
 } // functor
 
-#define REGISTER_MATMULLUT_CPU(T, U)        \
-  REGISTER_KERNEL_BUILDER(                  \
-      Name("MatMulLut")                     \
-      .Device(DEVICE_CPU)                   \
-      .TypeConstraint<T>("InputIdxType")    \
-      .TypeConstraint<U>("LUTValueType"),   \
-      MatMulLUTOp<CPUDevice, T, U>);
+#define REGISTER_MATMULNAIVE_CPU(T)   \
+  REGISTER_KERNEL_BUILDER(            \
+      Name("MatMulNaiveV2")             \
+      .Device(DEVICE_CPU)             \
+      .TypeConstraint<T>("T"),        \
+      MatMulNaiveOp<CPUDevice, T>);
 
-REGISTER_MATMULLUT_CPU(int32, int32);
-REGISTER_MATMULLUT_CPU(int32, float);
+REGISTER_MATMULNAIVE_CPU(int32);
+REGISTER_MATMULNAIVE_CPU(int64);
+REGISTER_MATMULNAIVE_CPU(float);
+REGISTER_MATMULNAIVE_CPU(double);
 
 } // lut_ops

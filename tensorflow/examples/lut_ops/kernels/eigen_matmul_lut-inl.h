@@ -25,10 +25,10 @@ template<typename T>
 using MyMatrixMap = TensorMap<MyMatrix<T>, Aligned>;
 
 template <typename RowIndices, typename ColIndices, typename LookupTable, typename DimPair>
-EIGEN_DEVICE_FUNC
-    EIGEN_ALWAYS_INLINE const MyMatrixMap<typename std::remove_const<typename internal::traits<LookupTable>::Scalar>::type>
-    MatMulLut(const RowIndices& row_indices, const ColIndices& col_indices, const LookupTable& lookupTable,
-              const DimPair& dim_pair) {
+EIGEN_DEVICE_FUNC EIGEN_ALWAYS_INLINE 
+const MyMatrixMap<typename std::remove_const<typename internal::traits<LookupTable>::Scalar>::type>
+  MatMulLut(const RowIndices& row_indices, const ColIndices& col_indices, const LookupTable& lookupTable,
+          const DimPair& dim_pair) {
 
   using LutValue = typename std::remove_const<typename internal::traits<LookupTable>::Scalar>::type;
   using InputIndex = typename internal::traits<RowIndices>::Index;
@@ -46,25 +46,54 @@ EIGEN_DEVICE_FUNC
       internal::traits<RowIndices>::Layout == internal::traits<ColIndices>::Layout,
       YOU_MADE_A_PROGRAMMING_MISTAKE)
 
-  InputIndex a_dim_remaining = 1 - dim_pair[0].first;
-  InputIndex b_dim_remaining = 1 - dim_pair[0].second;
-  InputIndex dim_product = row_idcs.dimensions()[dim_pair[0].first];
+  const InputIndex a_dim_remaining = 1 - dim_pair[0].first;
+  const InputIndex b_dim_remaining = 1 - dim_pair[0].second;
+  const InputIndex dim_product = row_idcs.dimension(dim_pair[0].first);
 
   DSizes<InputIndex, 2> output_dims;
-  output_dims[0] = row_idcs.dimensions()[a_dim_remaining];
-  output_dims[1] = col_idcs.dimensions()[b_dim_remaining];
+  output_dims[0] = row_idcs.dimension(a_dim_remaining);
+  output_dims[1] = col_idcs.dimension(b_dim_remaining);
+
+  /* std::cout << "[MatMulLutOp] ouput_dims: (" << output_dims[0] << ", " << output_dims[1] << "), dim_product: " << dim_product << "\n"; */
 
   MyMatrix<LutValue> result (output_dims);
+
+  using RowIndex = typename internal::traits<RowIndices>::Scalar;
+  using ColIndex = typename internal::traits<ColIndices>::Scalar;
+
+  const LutValue* lut = lookupTable.data();
+  const RowIndex* rowIdcs = row_indices.data();
+  const ColIndex* colIdcs = col_indices.data();
+  /* const bool isLutColMajor = internal::traits<LookupTable>::Layout == ColMajor; */
+  const InputIndex lutRows = lookupTable.dimension(0);
+  const InputIndex lutCols = lookupTable.dimension(1);
+  
+  /* std::cout << "lookupTable shape (" << lutRows << ", " << lutCols << "), isColMajor: " << isLutColMajor << "\n"; */ 
+  /* std::cout << "lookupTable.data()[0]: " << lut[0] << "\n"; */
+  /* std::cout << "lookupTable.data()[1]: " << lut[1] << "\n"; */
+  /* std::cout << "lookupTable(0, 0): " << lookupTable(0, 0) << "\n"; */
+  /* std::cout << "lookupTable(0, 1): " << lookupTable(0, 1) << "\n"; */
+  /* std::cout << "lookupTable(1, 0): " << lookupTable(1, 0) << "\n"; */
+
+  Tensor<LutValue, 1, RowMajor, DenseIndex> tmp (dim_product);
+  Tensor<LutValue, 0, RowMajor, DenseIndex> aggregated;
+  LutValue* tmpData = tmp.data();
+
+  /* Map<Matrix<typename internal::traits<LookupTable>::Scalar, Dynamic, Dynamic, RowMajor>> lutMat (lookupTable.data(), lutRows, lutCols); */
+  /* Map<Matrix<typename internal::traits<RowIndices>::Scalar, Dynamic, Dynamic, RowMajor>> rowIdcsMat (row_indices.data(), row_indices.dimension(0), row_indices.dimension(1)); */
+  /* Map<Matrix<typename internal::traits<ColIndices>::Scalar, Dynamic, Dynamic, RowMajor>> colIdcsMat (col_indices.data(), col_indices.dimension(0), col_indices.dimension(1)); */
+
   for (InputIndex i {0}; i < output_dims[0]; ++i)
   {
     for (InputIndex j {0}; j < output_dims[1]; ++j)
     {
-      LutValue tmp {0};
       for (InputIndex k {0}; k < dim_product; ++k)
       {
-        tmp += lookupTable(row_indices(i, k), col_indices(k, j));
+        /* tmp += lookupTable(row_indices(i, k), col_indices(k, j)); */
+        tmpData[k] = lut[rowIdcs[i * dim_product + k] * lutCols + colIdcs[k * output_dims[1] + j]];
       }
-      result(i, j) = tmp;
+      aggregated = tmp.sum();
+      result(i, j) = aggregated();
     }
   }
   return result;
