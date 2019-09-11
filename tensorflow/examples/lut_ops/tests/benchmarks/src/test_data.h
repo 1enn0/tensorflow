@@ -1,5 +1,7 @@
 #pragma once
 
+#include <type_traits>
+
 #include "defines.h"
 #include "lookup_table.h"
 
@@ -50,6 +52,15 @@ struct TestData {
     product_dims[0].first = 1;
     product_dims[0].second = 0;
   }
+
+  /* //--------------------------------------------------------------------------- */
+  /* template <typename T> */
+  /* Mat<T> get_act () const { */
+  /*   return std::is_floating_point<T>::value ? a_vals : a_idcs;}; */
+  /* //--------------------------------------------------------------------------- */
+  /* template <typename T> */
+  /* Mat<T> get_weights () const { */
+  /*   return std::is_floating_point<T>::value ? w_vals : w_idcs;}; */
 
   //---------------------------------------------------------------------------
   VecF activations_f;

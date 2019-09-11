@@ -30,6 +30,7 @@ const MyMatrixMap<typename std::remove_const<typename internal::traits<InA>::Sca
   MatMulNaive(const InA& a, const InB& b, const DimPair& dim_pair) {
 
   using InputIndex = typename internal::traits<InA>::Index;
+  using InputValue = typename internal::traits<InA>::Scalar;
   using OutputValue = typename std::remove_const<typename internal::traits<InA>::Scalar>::type;
 
   TensorRef<Tensor<typename internal::traits<InA>::Scalar,
@@ -55,17 +56,24 @@ const MyMatrixMap<typename std::remove_const<typename internal::traits<InA>::Sca
 
   /* std::cout << "[MatMulNaiveOp] ouput_dims: (" << output_dims[0] << ", " << output_dims[1] << "), dim_product: " << dim_product << "\n"; */
 
+  const InputValue* pA = a.data();
+  const InputValue* pB = b.data();
+  Tensor<OutputValue, 1, RowMajor, DenseIndex> tmp (dim_product);
+  Tensor<OutputValue, 0, RowMajor, DenseIndex> aggregated;
+  OutputValue* tmpData = tmp.data();
+
   MyMatrix<OutputValue> result (output_dims);
   for (InputIndex i {0}; i < output_dims[0]; ++i)
   {
     for (InputIndex j {0}; j < output_dims[1]; ++j)
     {
-      OutputValue tmp {0};
       for (InputIndex k {0}; k < dim_product; ++k)
       {
-        tmp += a(i, k) * b(k, j);
+        /* tmp += a(i, k) * b(k, j); */
+        tmpData[k] = pA[i * dim_product + k] * pB[k * output_dims[1] + j];
       }
-      result(i, j) = tmp;
+      aggregated = tmp.sum();
+      result(i, j) = aggregated();
     }
   }
   return result;

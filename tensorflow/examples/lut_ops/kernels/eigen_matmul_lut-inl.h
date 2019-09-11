@@ -64,24 +64,12 @@ const MyMatrixMap<typename std::remove_const<typename internal::traits<LookupTab
   const LutValue* lut = lookupTable.data();
   const RowIndex* rowIdcs = row_indices.data();
   const ColIndex* colIdcs = col_indices.data();
-  /* const bool isLutColMajor = internal::traits<LookupTable>::Layout == ColMajor; */
   const InputIndex lutRows = lookupTable.dimension(0);
   const InputIndex lutCols = lookupTable.dimension(1);
   
-  /* std::cout << "lookupTable shape (" << lutRows << ", " << lutCols << "), isColMajor: " << isLutColMajor << "\n"; */ 
-  /* std::cout << "lookupTable.data()[0]: " << lut[0] << "\n"; */
-  /* std::cout << "lookupTable.data()[1]: " << lut[1] << "\n"; */
-  /* std::cout << "lookupTable(0, 0): " << lookupTable(0, 0) << "\n"; */
-  /* std::cout << "lookupTable(0, 1): " << lookupTable(0, 1) << "\n"; */
-  /* std::cout << "lookupTable(1, 0): " << lookupTable(1, 0) << "\n"; */
-
   Tensor<LutValue, 1, RowMajor, DenseIndex> tmp (dim_product);
   Tensor<LutValue, 0, RowMajor, DenseIndex> aggregated;
   LutValue* tmpData = tmp.data();
-
-  /* Map<Matrix<typename internal::traits<LookupTable>::Scalar, Dynamic, Dynamic, RowMajor>> lutMat (lookupTable.data(), lutRows, lutCols); */
-  /* Map<Matrix<typename internal::traits<RowIndices>::Scalar, Dynamic, Dynamic, RowMajor>> rowIdcsMat (row_indices.data(), row_indices.dimension(0), row_indices.dimension(1)); */
-  /* Map<Matrix<typename internal::traits<ColIndices>::Scalar, Dynamic, Dynamic, RowMajor>> colIdcsMat (col_indices.data(), col_indices.dimension(0), col_indices.dimension(1)); */
 
   for (InputIndex i {0}; i < output_dims[0]; ++i)
   {
@@ -89,7 +77,6 @@ const MyMatrixMap<typename std::remove_const<typename internal::traits<LookupTab
     {
       for (InputIndex k {0}; k < dim_product; ++k)
       {
-        /* tmp += lookupTable(row_indices(i, k), col_indices(k, j)); */
         tmpData[k] = lut[rowIdcs[i * dim_product + k] * lutCols + colIdcs[k * output_dims[1] + j]];
       }
       aggregated = tmp.sum();

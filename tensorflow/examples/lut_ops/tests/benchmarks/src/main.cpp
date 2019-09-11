@@ -4,15 +4,11 @@
 
 int main ()
 {
-  auto data = TestData(10, 10, 2, 5, 3);
+  auto data = TestData(256, 4096, 32, 1000, 64);
 
-  std::cout << data.activations_f << "\n\n";
-  std::cout << data.weights_f << "\n\n";
-  std::cout << data.a_idcs << "\n\n";
-  std::cout << data.a_vals << "\n\n";
-  std::cout << data.w_idcs << "\n\n";
-  std::cout << data.w_vals << "\n\n";
-  /* std::cout << data.lut_i << "\n\n"; */
-  /* std::cout << data.lut_f << "\n\n"; */
+  std::cout << data.a_idcs.minimum() << "\n\n";
+  std::cout << data.a_idcs.maximum() << "\n\n";
+  std::cout << data.w_idcs.minimum() << "\n\n";
+  std::cout << data.w_idcs.maximum() << "\n\n";
   return 0;
 }
