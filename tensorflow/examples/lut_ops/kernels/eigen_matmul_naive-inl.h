@@ -42,9 +42,12 @@ const MyMatrixMap<typename std::remove_const<typename internal::traits<InA>::Sca
                    internal::traits<InB>::Layout, InputIndex> >
       in_b(b);
 
-  EIGEN_STATIC_ASSERT(
-      internal::traits<InA>::Layout == internal::traits<InB>::Layout,
-      YOU_MADE_A_PROGRAMMING_MISTAKE)
+  /* EIGEN_STATIC_ASSERT( */
+  /*     internal::traits<InA>::Layout == internal::traits<InB>::Layout, */
+  /*     YOU_MADE_A_PROGRAMMING_MISTAKE) */
+
+  const bool isARowMajor = internal::traits<InA>::Layout == Eigen::RowMajor;
+  const bool isBRowMajor = internal::traits<InB>::Layout == Eigen::RowMajor;
 
   const InputIndex a_dim_remaining = 1 - dim_pair[0].first;
   const InputIndex b_dim_remaining = 1 - dim_pair[0].second;
@@ -69,8 +72,11 @@ const MyMatrixMap<typename std::remove_const<typename internal::traits<InA>::Sca
     {
       for (InputIndex k {0}; k < dim_product; ++k)
       {
+        const size_t a_idx = isARowMajor ? i * dim_product + k : k * output_dims[0] + i;
+        const size_t b_idx = isARowMajor ? k * output_dims[1] + j : j * dim_product + k;
         /* tmp += a(i, k) * b(k, j); */
-        tmpData[k] = pA[i * dim_product + k] * pB[k * output_dims[1] + j];
+        /* tmpData[k] = pA[i * dim_product + k] * pB[k * output_dims[1] + j]; */
+        tmpData[k] = pA[a_idx] * pB[b_idx];
       }
       aggregated = tmp.sum();
       result(i, j) = aggregated();

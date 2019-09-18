@@ -38,5 +38,6 @@ PRIVATE
 )
 target_include_directories(main
 PRIVATE
+  ${PROJECT_SOURCE_DIR}/../../kernels
   ${EIGEN_INCLUDE_DIR}
 )

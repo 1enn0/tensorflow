@@ -3,10 +3,13 @@
 #include "Eigen/Eigen"
 #include "unsupported/Eigen/CXX11/Tensor"
 
-using int32 = long int;
+using int32 = int;
 
-template <typename T>
-using Mat = Eigen::Tensor<T, 2, Eigen::RowMajor, Eigen::DenseIndex>;
+/* template <typename T> */
+/* using Mat = Eigen::Tensor<T, 2, Eigen::RowMajor, Eigen::DenseIndex>; */
+
+template <typename T, int Options = Eigen::RowMajor>
+using Mat = Eigen::Tensor<T, 2, Options, Eigen::DenseIndex>;
 
 using MatI = Mat<int32>;
 using MatF = Mat<float>;

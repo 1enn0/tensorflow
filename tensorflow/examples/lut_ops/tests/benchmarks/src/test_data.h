@@ -9,13 +9,14 @@
 //-----------------------------------------------------------------------------
 // Test Data
 //-----------------------------------------------------------------------------
+template <typename T>
 struct TestData {
 
-  TestData (const int32 n_activations,
-            const int32 n_weights,
-            const int32 n_batches,
-            const int32 n_inputs,
-            const int32 n_units)
+  TestData (const T n_activations,
+            const T n_weights,
+            const T n_batches,
+            const T n_inputs,
+            const T n_units)
     : n_activations (n_activations)
     , n_weights (n_weights)
     , n_batches (n_batches)
@@ -34,54 +35,48 @@ struct TestData {
 
     // generate lookup tables
     lut_f = createLookupTable (activations_f, weights_f);
-    lut_i = (lut_f * scale).cast<int32> ();
+    lut_i = (lut_f * scale).cast<T> ();
     
     // generate random input data
     // activation indices in [0, n_activations]
     // weight indices in [0, n_weights]
     a_vals = MatF (n_batches, n_inputs);
     a_vals.setRandom ();
-    a_idcs = (a_vals * static_cast<float> (n_activations)).cast<int32>();
+    a_idcs = (a_vals * static_cast<float> (n_activations)).cast<T>();
     a_vals = lookupValues(a_idcs, activations_f);
 
     w_vals = MatF (n_inputs, n_units);
     w_vals.setRandom ();
-    w_idcs = (w_vals * static_cast<float> (n_weights)).cast<int32>();
+    w_idcs = (w_vals * static_cast<float> (n_weights)).cast<T>();
     w_vals = lookupValues(w_idcs, weights_f);
 
     product_dims[0].first = 1;
     product_dims[0].second = 0;
-  }
 
-  /* //--------------------------------------------------------------------------- */
-  /* template <typename T> */
-  /* Mat<T> get_act () const { */
-  /*   return std::is_floating_point<T>::value ? a_vals : a_idcs;}; */
-  /* //--------------------------------------------------------------------------- */
-  /* template <typename T> */
-  /* Mat<T> get_weights () const { */
-  /*   return std::is_floating_point<T>::value ? w_vals : w_idcs;}; */
+    output_shape = {n_batches, n_units};
+  }
 
   //---------------------------------------------------------------------------
   VecF activations_f;
   VecF weights_f;
 
-  MatI a_idcs;
+  Mat<T> a_idcs;
   MatF a_vals;
-  MatI w_idcs;
+  Mat<T> w_idcs;
   MatF w_vals;
   
   MatF lut_f;
-  MatI lut_i;
-  
+  Mat<T> lut_i;
+
   using DimPair = Eigen::array<Eigen::IndexPair<Eigen::DenseIndex>, 1>;
   DimPair product_dims;
+  Eigen::array<Eigen::Index, 2> output_shape;
 
-  const int32 n_activations {0};
-  const int32 n_weights {0};
-  const int32 n_batches {0};
-  const int32 n_inputs {0};
-  const int32 n_units {0};
+  const T n_activations {0};
+  const T n_weights {0};
+  const T n_batches {0};
+  const T n_inputs {0};
+  const T n_units {0};
 
   const float scale {16384.f}; // 2**14
 };
