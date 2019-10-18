@@ -25,13 +25,22 @@ int main ()
   /* std::cout << range << "\n\n" */
 
 
-  auto data = TestData<int>(32, 1000, 6, 100, 6);
+  /* auto data = TestData<int>(32, 1000, 6, 100, 6); */
 
-  MatI product1 = MatMulLut(data.a_idcs, data.w_idcs, data.lut_i, data.product_dims);
-  MatI product2 = MatMulLut_V2(data.a_idcs, data.w_idcs, data.lut_i, data.product_dims);
+  /* MatI product1 = MatMulLut(data.a_idcs, data.w_idcs, data.lut_i, data.product_dims); */
+  /* MatI product2 = MatMulLut_V2(data.a_idcs, data.w_idcs, data.lut_i, data.product_dims); */
 
-  std::cout << product1 << "\n\n";
-  std::cout << product2 << "\n\n";
+  /* std::cout << product1 << "\n\n"; */
+  /* std::cout << product2 << "\n\n"; */
+
+  Tensor<int, 3, RowMajor, DenseIndex> r (4, 5, 6);
+  r.setConstant(1);
+
+  array<int, 1> sum_dim {2};
+  Tensor<int, 2, RowMajor, DenseIndex> rs = r.sum(sum_dim);
+
+  std::cout << rs << std::endl;
+
 
   return 0;
 }

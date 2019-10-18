@@ -87,6 +87,7 @@ const MyMatrixMap<typename std::remove_const<typename internal::traits<LookupTab
   return result;
 }
 
+//-----------------------------------------------------------------------------
 template <typename RowIndices, typename ColIndices, typename LookupTable, typename DimPair>
 EIGEN_DEVICE_FUNC EIGEN_ALWAYS_INLINE 
 const MyMatrixMap<typename std::remove_const<typename internal::traits<LookupTable>::Scalar>::type>
@@ -95,6 +96,8 @@ const MyMatrixMap<typename std::remove_const<typename internal::traits<LookupTab
 
   using LutValue = typename std::remove_const<typename internal::traits<LookupTable>::Scalar>::type;
   using InputIndex = typename internal::traits<RowIndices>::Index;
+  using InputValueR = typename internal::traits<RowIndices>::Scalar;
+  using InputValueC = typename internal::traits<ColIndices>::Scalar;
 
   TensorRef<Tensor<typename internal::traits<RowIndices>::Scalar,
                    internal::traits<RowIndices>::NumDimensions,
@@ -117,45 +120,40 @@ const MyMatrixMap<typename std::remove_const<typename internal::traits<LookupTab
   output_dims[0] = row_idcs.dimension(a_dim_remaining);
   output_dims[1] = col_idcs.dimension(b_dim_remaining);
 
-  /* std::cout << "[MatMulLutOp] ouput_dims: (" << output_dims[0] << ", " << output_dims[1] << "), dim_product: " << dim_product << "\n"; */
-
-  MyMatrix<LutValue> result (output_dims);
-
-  using RowIndex = typename internal::traits<RowIndices>::Scalar;
-  using ColIndex = typename internal::traits<ColIndices>::Scalar;
-
-
-  const InputIndex lutRows = lookupTable.dimension(0);
-  const InputIndex lutCols = lookupTable.dimension(1);
-
-  // swap layout of col_indices matrix to ColMajor
+  // swap layout of col_indices matrix to ColMajor to access items linearly
   array<int, 2> shuffle {{1, 0}};
-  Tensor<ColIndex, 2, ColMajor, DenseIndex> colIdcsColMajor = col_indices.swap_layout().shuffle(shuffle);
+  Tensor<InputValueC, 2, ColMajor, DenseIndex> colIdcsCM = col_indices.swap_layout().shuffle(shuffle);
 
-  MyMatrix<RowIndex> rowIdcs_ = row_indices * static_cast<RowIndex>(lutCols);
+  const InputValueR n_cols_lut = lookupTable.dimension(1);
+  MyMatrix<InputValueR> rowIdcs_ = row_indices * n_cols_lut;
 
   // generate a vector ks = [0, 1, 2, ..., dim_product-1]
-  const int32 scan_axis {0};
-  using InIdxNoConst = typename std::remove_const<typename internal::traits<RowIndices>::Index>::type;
-  Tensor<InIdxNoConst, 1, RowMajor, DenseIndex> ks (dim_product);
-  ks = ks.setConstant(1).cumsum(scan_axis) - InIdxNoConst(1);
+  // (the indices of the innermost loop)
+  const int scan_axis {0};
+  Tensor<InputIndex, 1, RowMajor, DenseIndex> ks (dim_product);
+  ks = ks.setConstant(1).cumsum(scan_axis) - InputIndex(1);
 
   Tensor<LutValue, 1, RowMajor, DenseIndex> tmp (dim_product);
   Tensor<LutValue, 0, RowMajor, DenseIndex> aggregated;
+  MyMatrix<LutValue> result (output_dims);
 
   const LutValue* lut = lookupTable.data();
   LutValue* tmpData = tmp.data();
-  const RowIndex* rowIdcs = rowIdcs_.data();
-  const ColIndex* colIdcs = colIdcsColMajor.data();
+  const InputValueR* rowIdcs = rowIdcs_.data();
+  const InputValueC* colIdcs = colIdcsCM.data();
+
+  Tensor<InputIndex, 1, RowMajor, DenseIndex> rii (dim_product);
+  Tensor<InputIndex, 1, RowMajor, DenseIndex> cii (dim_product);
 
   for (InputIndex i {0}; i < output_dims[0]; ++i)
   {
-    Tensor<InIdxNoConst, 1, RowMajor, DenseIndex> rii = ks + (i * dim_product);
+    rii = ks + (i * dim_product);
     for (InputIndex j {0}; j < output_dims[1]; ++j)
     {
-      Tensor<InIdxNoConst, 1, RowMajor, DenseIndex> cii = ks + (j * dim_product);
+      cii = ks + (j * dim_product);
       for (InputIndex k {0}; k < dim_product; ++k)
       {
+        // compute lut[row_indices[i * dim_product + k] * lutCols + col_indices[k * output_dims[1] + j]];
         tmpData[k] = lut[rowIdcs[rii[k]] + colIdcs[cii[k]]];
       }
       aggregated = tmp.sum();

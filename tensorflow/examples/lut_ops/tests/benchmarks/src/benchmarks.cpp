@@ -61,9 +61,11 @@ void BM_Naive_Int32(benchmark::State& state) {
 
 //-----------------------------------------------------------------------------
 template <int32 n_batches, int32 n_inputs, int32 n_units> 
-void BM_Naive_Int_Col(benchmark::State& state) {
+void BM_Naive_Int32_Col(benchmark::State& state) {
   auto data = TestData<int32>(32, 1000, n_batches, n_inputs, n_units);
-  Mat<int32, Eigen::ColMajor> w_idcs_col_major = data.w_idcs.swap_layout();
+
+  Eigen::array<int, 2> shuffle {{1, 0}};
+  Mat<int32, Eigen::ColMajor> w_idcs_col_major = data.w_idcs.swap_layout().shuffle(shuffle);
   data.product_dims[0].second = 1;
   for (auto _ : state)
     MatI result = Eigen::MatMulNaive(data.a_idcs, w_idcs_col_major, data.product_dims);
@@ -78,16 +80,27 @@ void BM_Naive_Float(benchmark::State& state) {
 }
 
 //-----------------------------------------------------------------------------
-BENCHMARK_TEMPLATE(BM_Naive_Int32, 32, 10, 64);
-BENCHMARK_TEMPLATE(BM_Naive_Int32, 32, 100, 64);
-BENCHMARK_TEMPLATE(BM_Naive_Int32, 32, 1000, 64);
-BENCHMARK_TEMPLATE(BM_Naive_Int32, 32, 10000, 64);
+template <int32 n_batches, int32 n_inputs, int32 n_units> 
+void BM_Naive_Float_Col(benchmark::State& state) {
+  auto data = TestData<int32>(32, 1000, n_batches, n_inputs, n_units);
+
+  Eigen::array<int, 2> shuffle {{1, 0}};
+  Mat<float, Eigen::ColMajor> w_vals_cm = data.w_vals.swap_layout().shuffle(shuffle);
+  for (auto _ : state)
+    MatF product = Eigen::MatMulNaive(data.a_vals, w_vals_cm, data.product_dims);
+}
+
+//-----------------------------------------------------------------------------
+/* BENCHMARK_TEMPLATE(BM_Naive_Int32, 32, 10, 64); */
+/* BENCHMARK_TEMPLATE(BM_Naive_Int32, 32, 100, 64); */
+/* BENCHMARK_TEMPLATE(BM_Naive_Int32, 32, 1000, 64); */
+/* BENCHMARK_TEMPLATE(BM_Naive_Int32, 32, 10000, 64); */
 /* BENCHMARK_TEMPLATE(BM_Naive_Int32, 32, 100000, 1024); */
 
-BENCHMARK_TEMPLATE(BM_Naive_Int_Col, 32, 10, 64);
-BENCHMARK_TEMPLATE(BM_Naive_Int_Col, 32, 100, 64);
-BENCHMARK_TEMPLATE(BM_Naive_Int_Col, 32, 1000, 64);
-BENCHMARK_TEMPLATE(BM_Naive_Int_Col, 32, 10000, 64);
+/* BENCHMARK_TEMPLATE(BM_Naive_Int32_Col, 32, 10, 64); */
+/* BENCHMARK_TEMPLATE(BM_Naive_Int32_Col, 32, 100, 64); */
+/* BENCHMARK_TEMPLATE(BM_Naive_Int32_Col, 32, 1000, 64); */
+/* BENCHMARK_TEMPLATE(BM_Naive_Int32_Col, 32, 10000, 64); */
 /* BENCHMARK_TEMPLATE(BM_Naive_Int_Col, 32, 100000, 1024); */
 
 BENCHMARK_TEMPLATE(BM_Naive_Float, 32, 10, 64);
@@ -96,6 +109,10 @@ BENCHMARK_TEMPLATE(BM_Naive_Float, 32, 1000, 64);
 BENCHMARK_TEMPLATE(BM_Naive_Float, 32, 10000, 64);
 /* BENCHMARK_TEMPLATE(BM_Naive_Float, 32, 100000, 1024); */
 
+BENCHMARK_TEMPLATE(BM_Naive_Float_Col, 32, 10, 64);
+BENCHMARK_TEMPLATE(BM_Naive_Float_Col, 32, 100, 64);
+BENCHMARK_TEMPLATE(BM_Naive_Float_Col, 32, 1000, 64);
+BENCHMARK_TEMPLATE(BM_Naive_Float_Col, 32, 10000, 64);
 
 
 

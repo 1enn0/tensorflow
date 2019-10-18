@@ -1,19 +1,13 @@
-# Copyright 2015 The TensorFlow Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
+"""Tests for conv2dlut op.
 
-"""Test for conv2dlut op."""
+Because the lut_ops are compiled as a shared
+library instead of directly built into the Tensorflow binary,
+the custom op library has to be loaded at runtime.
+
+To run this test, you have to update the LIB_PATH
+variable to point to the compiled ``lut_ops_op_lib.so``
+file.
+"""
 
 from __future__ import absolute_import
 from __future__ import division
@@ -23,10 +17,12 @@ import unittest
 import os.path
 
 import tensorflow as tf
-
 import numpy as np
 
 conv2dlut = None
+
+LIB_PATH = '/path/to/lut_ops_op_lib.so'
+LIB_PATH = '/home/lhannink/code/git/tensorflow/bazel-bin/tensorflow/examples/lut_ops/lut_ops_op_lib.so'
 
 class Conv2DLUTTest(unittest.TestCase):
 
@@ -368,8 +364,7 @@ class Conv2DLUTTest(unittest.TestCase):
 if __name__ == '__main__':
     tf.compat.v1.enable_eager_execution()
     # load custom op lib
-    _lut_ops_module = tf.load_op_library(
-            '/home/lhannink/code/git/tensorflow/bazel-bin/tensorflow/examples/lut_ops/lut_ops_op_lib.so')
+    _lut_ops_module = tf.load_op_library(LIB_PATH)
     conv2dlut = _lut_ops_module.conv2d_lut
 
     unittest.main()

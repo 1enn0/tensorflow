@@ -13,8 +13,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-// See docs in ../ops/nn_ops.cc.
-
 #define USE_EIGEN_TENSOR
 #define EIGEN_USE_THREADS
 
